@@ -9,6 +9,10 @@ The current implementation focuses on:
 - Local CSV integration from `./db/Data`
 - A reserved image pipeline so real product images can be connected later without redesigning the UI
 
+## Data Setup
+
+先去共用雲端，從【DataBase資料】資料夾下載所有檔案，然後放到這個專案的 【db】資料夾底下的【Data】
+
 ## Tech Stack
 
 - `Next.js` App Router

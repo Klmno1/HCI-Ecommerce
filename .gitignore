@@ -16,7 +16,8 @@
 /build
 
 # data
-/db/Data
+/db/Data/*
+!/db/Data/.gitkeep
 
 # misc
 .DS_Store
