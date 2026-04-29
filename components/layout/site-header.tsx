@@ -42,7 +42,7 @@ export function SiteHeader({
   const { totalQuantity } = useCart();
   const [hoveredCategory, setHoveredCategory] = useState<string | null>(null);
 
-  const openCategory = hoveredCategory ?? selectedCategory;
+  const openCategory = hoveredCategory;
   const openSubcategories = useMemo(
     () => categories.find((category) => category.name === openCategory)?.subcategories ?? [],
     [categories, openCategory]
@@ -140,7 +140,10 @@ export function SiteHeader({
                 >
                   <button
                     type="button"
-                    onClick={() => onCategoryChange(category.name)}
+                    onClick={() => {
+                      onCategoryChange(category.name);
+                      setHoveredCategory(null);
+                    }}
                     className={cn(
                       "relative flex h-11 min-w-[96px] items-center justify-center px-6 text-lg font-semibold transition",
                       isActive || isHovered ? "bg-[#c73d7a]" : "bg-transparent hover:bg-[#5a5a5a]"

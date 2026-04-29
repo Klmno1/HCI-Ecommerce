@@ -137,7 +137,7 @@ export function ProductDetailShell({ product, categories }: ProductDetailShellPr
                     <InfoBadge
                       icon={<ShoppingCartOutlinedIcon fontSize="small" />}
                       label="商品編號"
-                      value={product.id}
+                      value={product.rawId}
                     />
                   </div>
 

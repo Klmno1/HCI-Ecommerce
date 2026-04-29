@@ -1,5 +1,6 @@
 export type ProductRecord = {
   id: string;
+  rawId: string;
   name: string;
   shortName: string;
   brand: string;

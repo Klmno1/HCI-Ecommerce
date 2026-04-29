@@ -1,5 +1,10 @@
+import { Suspense } from "react";
 import { CatalogShell } from "@/components/catalog/catalog-shell";
 
 export default function HomePage() {
-  return <CatalogShell />;
+  return (
+    <Suspense fallback={null}>
+      <CatalogShell />
+    </Suspense>
+  );
 }

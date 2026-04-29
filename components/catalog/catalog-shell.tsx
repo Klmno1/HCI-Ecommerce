@@ -44,6 +44,10 @@ const defaultFilters: FilterState = {
   page: 1
 };
 
+function getProductListKey(product: ProductRecord, scope: string) {
+  return `${scope}-${product.sourceFile}-${product.id}`;
+}
+
 const adCards = [
   {
     title: "品牌聯名快閃",
@@ -261,7 +265,7 @@ export function CatalogShell() {
               ) : (
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                   {items.map((product) => (
-                    <ProductCard key={product.id} product={product} />
+                    <ProductCard key={getProductListKey(product, "primary")} product={product} />
                   ))}
                 </div>
               )}
@@ -282,7 +286,7 @@ export function CatalogShell() {
 
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {items.slice(0, 4).map((product) => (
-                  <ProductCard key={`${product.id}-secondary`} product={product} compact />
+                  <ProductCard key={getProductListKey(product, "secondary")} product={product} compact />
                 ))}
               </div>
 
@@ -312,7 +316,7 @@ export function CatalogShell() {
                 <h3 className="text-sm font-semibold text-slate-900">你可能也喜歡</h3>
                 <div className="mt-3 space-y-3">
                   {spotlightProducts.map((product) => (
-                    <SpotlightCard key={product.id} product={product} />
+                    <SpotlightCard key={getProductListKey(product, "spotlight")} product={product} />
                   ))}
                 </div>
               </div>
@@ -321,7 +325,7 @@ export function CatalogShell() {
                 <h3 className="text-sm font-semibold text-slate-900">最近關注</h3>
                 <div className="mt-3 space-y-3">
                   {items.slice(3, 5).map((product) => (
-                    <SpotlightCard key={`${product.id}-recent`} product={product} />
+                    <SpotlightCard key={getProductListKey(product, "recent")} product={product} />
                   ))}
                 </div>
               </div>

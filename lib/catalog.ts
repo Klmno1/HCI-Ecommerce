@@ -64,6 +64,11 @@ function getImagePath(productId: string) {
   return matched ? `/api/product-images/${encodeURIComponent(matched)}` : null;
 }
 
+function createProductId(rawId: string, sourceFile: string, rowIndex: number) {
+  const sourceKey = Buffer.from(sourceFile.replace(/\.csv$/i, ""), "utf8").toString("base64url");
+  return `${rawId}__${sourceKey}__${rowIndex}`;
+}
+
 function loadMapping(): CategoryMapping[] {
   const mappingPath = path.join(dataDir, mappingFilename);
 
@@ -112,12 +117,13 @@ function loadProducts(): CatalogCache {
     const mapping = mappingByFile.get(file);
 
     return rows
-      .map((row) => {
+      .map((row, rowIndex) => {
         const raw = Object.fromEntries(header.map((key, index) => [key, (row[index] ?? "").trim()]));
         const price = safeNumber(raw["售價"], 0);
         const originalPrice = safeNumber(raw["原價"], price);
         const discountValue = safeNumber(raw.discounts ?? "0", 0);
-        const id = raw["商品ID"] || `${file}-${Math.random()}`;
+        const rawId = raw["商品ID"] || `${file}-${Math.random()}`;
+        const id = createProductId(rawId, file, rowIndex);
         const detail = raw["商品說明"] || raw["商品規格"] || "";
 
         const features = Object.fromEntries(
@@ -126,6 +132,7 @@ function loadProducts(): CatalogCache {
 
         return {
           id,
+          rawId,
           name: raw["商品名稱"] || raw["簡化名稱"] || "未命名商品",
           shortName: raw["簡化名稱"] || raw["商品名稱"] || "未命名商品",
           brand: raw["品牌"] || "精選品牌",
@@ -146,7 +153,7 @@ function loadProducts(): CatalogCache {
           subcategory: mapping?.keyword || file.replace(".csv", "").split("_")[1] || "其他",
           sourceFile: file,
           imageText: `${raw["簡化名稱"] || raw["商品名稱"] || "商品"} 圖片預留區`,
-          imageUrl: getImagePath(id),
+          imageUrl: getImagePath(rawId),
           features
         } satisfies ProductRecord;
       })
@@ -174,13 +181,8 @@ function buildSearchHaystack(product: ProductRecord) {
   return normalizeText(
     [
       product.name,
-      product.shortName,
-      product.brand,
-      product.description,
-      product.tagline,
       product.category,
       product.subcategory,
-      product.searchKeyword,
       ...Object.values(product.features)
     ].join(" ")
   );
@@ -314,7 +316,7 @@ export function getCatalogCategories() {
 
 export function getProductById(id: string) {
   const { products } = loadProducts();
-  return products.find((product) => product.id === id) ?? null;
+  return products.find((product) => product.id === id || product.rawId === id) ?? null;
 }
 
 export function getFeaturedProducts(limit = 4) {

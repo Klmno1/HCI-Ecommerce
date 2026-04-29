@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import * as Dialog from "@radix-ui/react-dialog";
 import * as ScrollArea from "@radix-ui/react-scroll-area";
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
@@ -48,15 +49,26 @@ export function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
                   items.map((item) => (
                     <div key={item.id} className="rounded-lg border border-slate-200 p-4">
                       <div className="flex gap-3">
-                        <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg bg-slate-100 px-2 text-center text-xs text-slate-500">
+                        <Link
+                          href={`/products/${encodeURIComponent(item.id)}`}
+                          prefetch
+                          onClick={() => onOpenChange(false)}
+                          className="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg bg-slate-100 px-2 text-center text-xs text-slate-500 transition hover:bg-slate-200"
+                          aria-label={`View ${item.name}`}
+                        >
                           {item.imageText}
-                        </div>
+                        </Link>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-start justify-between gap-2">
-                            <div>
+                            <Link
+                              href={`/products/${encodeURIComponent(item.id)}`}
+                              prefetch
+                              onClick={() => onOpenChange(false)}
+                              className="min-w-0 rounded-md transition hover:text-[#2147d1] focus:outline-none focus:ring-2 focus:ring-[#3965ff]/30"
+                            >
                               <p className="line-clamp-2 text-sm font-semibold text-slate-900">{item.name}</p>
                               <p className="mt-1 text-xs text-slate-500">{item.subcategory}</p>
-                            </div>
+                            </Link>
                             <button
                               type="button"
                               onClick={() => removeItem(item.id)}

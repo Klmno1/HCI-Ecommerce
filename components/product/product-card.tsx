@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { IconButton, Rating } from "@mui/material";
 import ShoppingCartRoundedIcon from "@mui/icons-material/ShoppingCartRounded";
 import { useCart } from "@/components/providers/cart-provider";
@@ -14,12 +15,17 @@ export function ProductCard({
   product: ProductRecord;
   compact?: boolean;
 }) {
+  const router = useRouter();
   const { addItem } = useCart();
   const hasDiscount = product.originalPrice > product.price;
+  const productHref = `/products/${encodeURIComponent(product.id)}`;
 
   return (
     <Link
-      href={`/products/${product.id}`}
+      href={productHref}
+      prefetch
+      onMouseEnter={() => router.prefetch(productHref)}
+      onFocus={() => router.prefetch(productHref)}
       className="group block overflow-hidden rounded-lg border border-slate-200/90 bg-white shadow-[0_16px_30px_rgba(31,50,91,0.06)] transition hover:-translate-y-1 hover:shadow-[0_24px_40px_rgba(31,50,91,0.1)]"
     >
       <article>
