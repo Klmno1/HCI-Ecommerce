@@ -38,6 +38,7 @@ export type CatalogFilters = {
   minPrice?: number;
   maxPrice?: number;
   minRating?: number;
+  delivery?: "all" | "24h" | "normal";
   featureFilters?: Record<string, string[]>;
   sort?: "price-asc" | "price-desc" | "popular";
   page?: number;

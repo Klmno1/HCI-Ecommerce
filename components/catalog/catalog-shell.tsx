@@ -12,7 +12,7 @@ import { FilterSidebar } from "@/components/catalog/filter-sidebar";
 import { SiteHeader } from "@/components/layout/site-header";
 import { ProductCard } from "@/components/product/product-card";
 import type { CatalogResponse, ProductRecord } from "@/lib/types";
-import { formatPrice } from "@/lib/utils";
+import { cn, formatPrice } from "@/lib/utils";
 
 const fetcher = async (url: string) => {
   const response = await fetch(url);
@@ -29,6 +29,7 @@ type FilterState = {
   minPrice?: number;
   maxPrice?: number;
   minRating: number;
+  delivery: "all" | "24h" | "normal";
   featureFilters: Record<string, string[]>;
   sort: "recommended" | "price-asc" | "price-desc" | "popular";
   page: number;
@@ -39,6 +40,7 @@ const defaultFilters: FilterState = {
   category: "",
   subcategory: "",
   minRating: 0,
+  delivery: "all",
   featureFilters: {},
   sort: "recommended",
   page: 1
@@ -69,6 +71,7 @@ function readFiltersFromParams(params: URLSearchParams): FilterState {
   const minRating = params.get("minRating");
   const page = params.get("page");
   const sort = params.get("sort");
+  const delivery = params.get("delivery");
   const featureFilters = params.get("featureFilters");
 
   return {
@@ -78,6 +81,7 @@ function readFiltersFromParams(params: URLSearchParams): FilterState {
     minPrice: minPrice ? Number(minPrice) : undefined,
     maxPrice: maxPrice ? Number(maxPrice) : undefined,
     minRating: minRating ? Number(minRating) : 0,
+    delivery: delivery === "24h" || delivery === "normal" ? delivery : "all",
     featureFilters: featureFilters ? JSON.parse(featureFilters) : {},
     sort:
       sort === "price-asc" || sort === "price-desc" || sort === "popular"
@@ -109,6 +113,7 @@ export function CatalogShell() {
     if (typeof filters.minPrice === "number") params.set("minPrice", String(filters.minPrice));
     if (typeof filters.maxPrice === "number") params.set("maxPrice", String(filters.maxPrice));
     if (filters.minRating > 0) params.set("minRating", String(filters.minRating));
+    if (filters.delivery !== "all") params.set("delivery", filters.delivery);
     if (Object.keys(filters.featureFilters).length > 0) {
       params.set("featureFilters", JSON.stringify(filters.featureFilters));
     }
@@ -140,6 +145,7 @@ export function CatalogShell() {
     if (typeof next.minPrice === "number") params.set("minPrice", String(next.minPrice));
     if (typeof next.maxPrice === "number") params.set("maxPrice", String(next.maxPrice));
     if (next.minRating > 0) params.set("minRating", String(next.minRating));
+    if (next.delivery !== "all") params.set("delivery", next.delivery);
     if (Object.keys(next.featureFilters).length > 0) {
       params.set("featureFilters", JSON.stringify(next.featureFilters));
     }
@@ -155,6 +161,21 @@ export function CatalogShell() {
     setFilters(next);
     updateRoute(next);
   };
+
+  useEffect(() => {
+    if (!data || !filters.category || !filters.subcategory) {
+      return;
+    }
+
+    const selectedCategory = data.categories.find((category) => category.name === filters.category);
+    if (selectedCategory && !selectedCategory.subcategories.includes(filters.subcategory)) {
+      patchFilters({
+        subcategory: "",
+        featureFilters: {},
+        page: 1
+      });
+    }
+  }, [data, filters.category, filters.subcategory]);
 
   const selectedCategoryName = filters.subcategory
     ? `${filters.category} - ${filters.subcategory}`
@@ -181,6 +202,14 @@ export function CatalogShell() {
         onSubcategoryChange={(value) =>
           patchFilters({
             subcategory: value,
+            featureFilters: {},
+            page: 1
+          })
+        }
+        onCategorySubcategoryChange={(category, subcategory) =>
+          patchFilters({
+            category,
+            subcategory,
             featureFilters: {},
             page: 1
           })
@@ -221,7 +250,7 @@ export function CatalogShell() {
             </div>
           </div>
 
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_220px]">
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_260px]">
             <div className="space-y-4">
               <div className="glass-panel rounded-lg p-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -300,7 +329,7 @@ export function CatalogShell() {
               </div>
             </div>
 
-            <aside className="space-y-4">
+            <aside className="min-w-0 space-y-4">
               {adCards.map((card) => (
                 <div
                   key={card.title}
@@ -343,17 +372,17 @@ function SpotlightCard({ product }: { product: ProductRecord }) {
   const hasDiscount = product.originalPrice > product.price;
 
   return (
-    <div className="flex gap-3 rounded-lg border border-slate-200/70 bg-white/80 p-2">
-      <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-md bg-slate-100 px-2 text-center text-[11px] text-slate-500">
+    <div className="flex min-w-0 gap-3 overflow-hidden rounded-lg border border-slate-200/70 bg-white/80 p-2">
+      <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-md bg-slate-100 px-2 text-center text-[10px] text-slate-500">
         圖片預留
       </div>
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <p className="line-clamp-2 text-sm font-medium text-slate-800">{product.shortName}</p>
-        <div className="mt-1 flex items-center gap-2">
-          <span className={hasDiscount ? "text-sm font-bold text-[#ff5a36]" : "text-sm font-bold text-slate-900"}>
+        <div className="mt-1 flex min-w-0 flex-col items-start gap-1">
+          <span className={cn("block max-w-full truncate text-sm font-bold", hasDiscount ? "text-[#ff5a36]" : "text-slate-900")}>
             {formatPrice(product.price)}
           </span>
-          <Rating value={product.rating} readOnly precision={0.5} size="small" />
+          <Rating value={product.rating} readOnly precision={0.5} size="small" className="max-w-full" />
         </div>
       </div>
     </div>

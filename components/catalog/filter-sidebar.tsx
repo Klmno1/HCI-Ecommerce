@@ -15,6 +15,7 @@ type FilterSidebarProps = {
     minPrice?: number;
     maxPrice?: number;
     minRating: number;
+    delivery: "all" | "24h" | "normal";
     featureFilters: Record<string, string[]>;
   };
   onChange: (
@@ -22,6 +23,7 @@ type FilterSidebarProps = {
       minPrice?: number;
       maxPrice?: number;
       minRating: number;
+      delivery: "all" | "24h" | "normal";
       featureFilters: Record<string, string[]>;
     }>
   ) => void;
@@ -50,18 +52,18 @@ export function FilterSidebar({ data, filters, onChange, onReset }: FilterSideba
   };
 
   return (
-    <aside className="sticky top-[170px] hidden h-fit w-[280px] shrink-0 xl:block">
+    <aside className="hidden h-fit w-[280px] shrink-0 xl:block">
       <div className="glass-panel rounded-lg">
         <div className="flex items-center justify-between border-b border-slate-200/80 px-5 py-4">
           <h2 className="text-sm font-semibold text-slate-900">篩選條件</h2>
           <button type="button" onClick={onReset} className="text-xs font-semibold text-[#3965ff]">
-            清除
+            重置
           </button>
         </div>
 
         <Accordion.Root
           type="multiple"
-          defaultValue={showFeatureFilters ? ["price", "rating", "features"] : ["price", "rating"]}
+          defaultValue={showFeatureFilters ? ["price", "rating", "delivery", "features"] : ["price", "rating", "delivery"]}
           className="divide-y divide-slate-200/80"
         >
           <AccordionSection title="價格範圍" value="price">
@@ -89,21 +91,48 @@ export function FilterSidebar({ data, filters, onChange, onReset }: FilterSideba
           </AccordionSection>
 
           <AccordionSection title="評分" value="rating">
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               {[5, 4, 3, 2, 1].map((rating) => (
                 <button
                   type="button"
                   key={rating}
                   onClick={() => onChange({ minRating: filters.minRating === rating ? 0 : rating })}
                   className={cn(
-                    "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm",
+                    "flex h-8 w-full items-center gap-2 rounded-md px-2 text-sm",
                     filters.minRating === rating
                       ? "bg-[#edf2ff] text-[#2147d1]"
                       : "text-slate-600 hover:bg-slate-100"
                   )}
                 >
                   <Rating value={rating} readOnly size="small" />
-                  <span>以上</span>
+                  <span className="text-xs">以上</span>
+                </button>
+              ))}
+            </div>
+          </AccordionSection>
+
+          <AccordionSection title="配送方式" value="delivery">
+            <div className="space-y-1.5">
+              {[
+                { label: "全部", value: "all" as const },
+                { label: "24H 到貨", value: "24h" as const },
+                { label: "一般配送", value: "normal" as const }
+              ].map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => onChange({ delivery: option.value })}
+                  className={cn(
+                    "flex h-8 w-full items-center justify-between rounded-md px-3 text-sm transition",
+                    filters.delivery === option.value
+                      ? "bg-[#edf2ff] text-[#2147d1]"
+                      : "text-slate-600 hover:bg-slate-100"
+                  )}
+                >
+                  <span>{option.label}</span>
+                  <span className="text-[11px] text-slate-400">
+                    {option.value === "24h" ? "快速" : option.value === "normal" ? "標準" : ""}
+                  </span>
                 </button>
               ))}
             </div>

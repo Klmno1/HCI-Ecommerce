@@ -26,6 +26,7 @@ type SiteHeaderProps = {
   onCartOpen: () => void;
   onCategoryChange: (value: string) => void;
   onSubcategoryChange: (value: string) => void;
+  onCategorySubcategoryChange?: (category: string, subcategory: string) => void;
 };
 
 export function SiteHeader({
@@ -37,7 +38,8 @@ export function SiteHeader({
   onSearchSubmit,
   onCartOpen,
   onCategoryChange,
-  onSubcategoryChange
+  onSubcategoryChange,
+  onCategorySubcategoryChange
 }: SiteHeaderProps) {
   const { totalQuantity } = useCart();
   const [hoveredCategory, setHoveredCategory] = useState<string | null>(null);
@@ -129,8 +131,7 @@ export function SiteHeader({
         <div className="mx-auto hidden max-w-[1440px] xl:block">
           <div className="flex items-stretch">
             {categories.map((category) => {
-              const isActive = category.name === selectedCategory;
-              const isHovered = category.name === openCategory;
+              const isActive = category.name === (openCategory ?? selectedCategory);
 
               return (
                 <div
@@ -146,7 +147,7 @@ export function SiteHeader({
                     }}
                     className={cn(
                       "relative flex h-11 min-w-[96px] items-center justify-center px-6 text-lg font-semibold transition",
-                      isActive || isHovered ? "bg-[#c73d7a]" : "bg-transparent hover:bg-[#5a5a5a]"
+                      isActive ? "bg-[#c73d7a]" : "bg-transparent hover:bg-[#5a5a5a]"
                     )}
                   >
                     {category.name}
@@ -168,8 +169,12 @@ export function SiteHeader({
                       key={`${openCategory}-${subcategory}`}
                       type="button"
                       onClick={() => {
-                        onCategoryChange(openCategory);
-                        onSubcategoryChange(subcategory);
+                        if (onCategorySubcategoryChange) {
+                          onCategorySubcategoryChange(openCategory, subcategory);
+                        } else {
+                          onCategoryChange(openCategory);
+                          onSubcategoryChange(subcategory);
+                        }
                         setHoveredCategory(null);
                       }}
                       className={cn(

@@ -262,6 +262,12 @@ export function getCatalog(filters: CatalogFilters = {}): CatalogResponse {
     filtered = filtered.filter((product) => product.rating >= minRating);
   }
 
+  if (filters.delivery === "24h") {
+    filtered = filtered.filter((product) => product.is24h);
+  } else if (filters.delivery === "normal") {
+    filtered = filtered.filter((product) => !product.is24h);
+  }
+
   filtered = filterByFeatures(filtered, filters.featureFilters);
   filtered = sortProducts(filtered, filters.sort);
 

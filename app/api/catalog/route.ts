@@ -23,6 +23,10 @@ export function GET(request: NextRequest) {
     minPrice: searchParams.get("minPrice") ? Number(searchParams.get("minPrice")) : undefined,
     maxPrice: searchParams.get("maxPrice") ? Number(searchParams.get("maxPrice")) : undefined,
     minRating: searchParams.get("minRating") ? Number(searchParams.get("minRating")) : undefined,
+    delivery:
+      searchParams.get("delivery") === "24h" || searchParams.get("delivery") === "normal"
+        ? (searchParams.get("delivery") as "24h" | "normal")
+        : undefined,
     sort: (searchParams.get("sort") as "price-asc" | "price-desc" | "popular" | null) ?? undefined,
     page: searchParams.get("page") ? Number(searchParams.get("page")) : undefined,
     pageSize: searchParams.get("pageSize") ? Number(searchParams.get("pageSize")) : undefined,

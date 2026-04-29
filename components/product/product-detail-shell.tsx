@@ -50,6 +50,12 @@ export function ProductDetailShell({ product, categories }: ProductDetailShellPr
             subcategory: value
           })
         }
+        onCategorySubcategoryChange={(category, subcategory) =>
+          routeToCatalog({
+            category,
+            subcategory
+          })
+        }
       />
 
       <main className="px-4 py-6 lg:px-6">
