@@ -81,7 +81,11 @@ function readFiltersFromParams(params: URLSearchParams): FilterState {
       if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
         parsedFeatureFilters = Object.entries(parsed).reduce<Record<string, string[]>>(
           (acc, [key, value]) => {
-            if (typeof key === "string" && Array.isArray(value) && value.every((item) => typeof item === "string")) {
+            if (
+              typeof key === "string" &&
+              Array.isArray(value) &&
+              value.every((item) => typeof item === "string")
+            ) {
               acc[key] = value;
             }
             return acc;
@@ -115,7 +119,9 @@ export function CatalogShell() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const [filters, setFilters] = useState<FilterState>(() => readFiltersFromParams(new URLSearchParams()));
+  const [filters, setFilters] = useState<FilterState>(() =>
+    readFiltersFromParams(new URLSearchParams())
+  );
   const [draftSearch, setDraftSearch] = useState("");
   const [cartOpen, setCartOpen] = useState(false);
 
@@ -139,7 +145,7 @@ export function CatalogShell() {
     }
     if (filters.sort !== "recommended") params.set("sort", filters.sort);
     params.set("page", String(filters.page));
-    params.set("pageSize", "16");
+    params.set("pageSize", "12");
     return `/api/catalog?${params.toString()}`;
   }, [filters]);
 
@@ -149,6 +155,12 @@ export function CatalogShell() {
 
   const items = data?.items ?? [];
   const spotlightProducts = items.slice(0, 3);
+  const heroRowItems = items.slice(0, 4);
+  const lowerGridItems = items.slice(4, 12);
+  const selectedFeatureCount = Object.values(filters.featureFilters).reduce(
+    (sum, values) => sum + values.length,
+    0
+  );
 
   const sortTabs: Array<{ label: string; value: FilterState["sort"] }> = [
     { label: "推薦", value: "recommended" },
@@ -182,12 +194,23 @@ export function CatalogShell() {
     updateRoute(next);
   };
 
-  const resetPriceForScopeChange = (patch: Partial<FilterState>) =>
+  const scrollToTop = () => {
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth"
+    });
+  };
+
+  const resetFiltersForScopeChange = (patch: Partial<FilterState>) =>
     patchFilters({
       ...patch,
       search: "",
       minPrice: undefined,
       maxPrice: undefined,
+      minRating: 0,
+      delivery: "all",
+      featureFilters: {},
+      sort: "recommended",
       page: 1
     });
 
@@ -203,7 +226,9 @@ export function CatalogShell() {
       return;
     }
 
-    const selectedCategory = data.categories.find((category) => category.name === filters.category);
+    const selectedCategory = data.categories.find(
+      (category) => category.name === filters.category
+    );
     if (selectedCategory && !selectedCategory.subcategories.includes(filters.subcategory)) {
       patchFilters({
         subcategory: "",
@@ -255,35 +280,37 @@ export function CatalogShell() {
         selectedSubcategory={filters.subcategory}
         onSearchChange={setDraftSearch}
         onSearchSubmit={() => {
-          patchFilters({ search: draftSearch, page: 1 });
+          patchFilters({
+            ...defaultFilters,
+            search: draftSearch,
+            page: 1
+          });
           setDraftSearch("");
         }}
         onCartOpen={() => setCartOpen(true)}
         onCategoryChange={(value) =>
-          resetPriceForScopeChange({
+          resetFiltersForScopeChange({
             category: value,
-            subcategory: "",
-            featureFilters: {}
+            subcategory: ""
           })
         }
         onSubcategoryChange={(value) =>
-          resetPriceForScopeChange({
-            subcategory: value,
-            featureFilters: {}
+          resetFiltersForScopeChange({
+            category: filters.category,
+            subcategory: value
           })
         }
         onCategorySubcategoryChange={(category, subcategory) =>
-          resetPriceForScopeChange({
+          resetFiltersForScopeChange({
             category,
-            subcategory,
-            featureFilters: {}
+            subcategory
           })
         }
       />
 
-      <main className="mx-auto flex max-w-[1440px] gap-4 px-4 py-5 lg:px-6">
+      <main className="mx-auto flex max-w-[1560px] gap-4 px-3 py-5 lg:px-4">
         <FilterSidebar
-          key={`${filters.category}::${filters.subcategory}`}
+          key={`${filters.category}::${filters.subcategory}::${filters.search}`}
           data={data}
           filters={filters}
           onChange={(next) => patchFilters({ ...next, page: 1 })}
@@ -297,7 +324,7 @@ export function CatalogShell() {
         />
 
         <section className="min-w-0 flex-1 space-y-5">
-          <div className="glass-panel grid-bg rounded-lg px-5 py-4">
+          <div className="glass-panel rounded-lg px-5 py-10">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#3965ff]">
@@ -305,25 +332,25 @@ export function CatalogShell() {
                 </p>
                 <h1 className="mt-1 text-2xl font-bold text-slate-900">{selectedCategoryName}</h1>
                 <p className="mt-1 text-sm text-slate-500">
-                  {data ? `${data.total} 件商品` : "整理中"}
+                  {/* {data ? `${data.total} 件商品` : "整理中"} */}
                   {filters.search ? `，關鍵字「${filters.search}」` : ""}
                 </p>
               </div>
 
               <div className="rounded-full bg-white px-4 py-2 text-sm text-slate-600 shadow-sm">
-                24H 到貨商品
-                <span className="ml-2 font-semibold text-[#18a56f]">
-                  {items.filter((item) => item.is24h).length}
-                </span>
+                選取特徵
+                <span className="ml-2 font-semibold text-[#18a56f]">{selectedFeatureCount}</span>
               </div>
             </div>
           </div>
 
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_260px]">
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_240px]">
             <div className="space-y-4">
               <div className="glass-panel rounded-lg p-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                  <span className="text-sm font-semibold text-slate-500">{data?.total ?? 0} 件商品</span>
+                  <span className="text-sm font-semibold text-slate-500">
+                    {data?.total ?? 0} 件商品
+                  </span>
                   <Tabs.Root
                     value={filters.sort}
                     onValueChange={(value) =>
@@ -362,7 +389,7 @@ export function CatalogShell() {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                  {items.map((product) => (
+                  {heroRowItems.map((product) => (
                     <ProductCard key={getProductListKey(product, "primary")} product={product} />
                   ))}
                 </div>
@@ -383,8 +410,12 @@ export function CatalogShell() {
               </div>
 
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {items.slice(0, 4).map((product) => (
-                  <ProductCard key={getProductListKey(product, "secondary")} product={product} compact />
+                {lowerGridItems.map((product) => (
+                  <ProductCard
+                    key={getProductListKey(product, "secondary")}
+                    product={product}
+                    compact
+                  />
                 ))}
               </div>
 
@@ -393,7 +424,10 @@ export function CatalogShell() {
                   color="primary"
                   count={data?.totalPages ?? 1}
                   page={filters.page}
-                  onChange={(_event, page) => patchFilters({ page })}
+                  onChange={(_event, page) => {
+                    patchFilters({ page });
+                    scrollToTop();
+                  }}
                 />
               </div>
             </div>
@@ -414,7 +448,10 @@ export function CatalogShell() {
                 <h3 className="text-sm font-semibold text-slate-900">你可能也喜歡</h3>
                 <div className="mt-3 space-y-3">
                   {spotlightProducts.map((product) => (
-                    <SpotlightCard key={getProductListKey(product, "spotlight")} product={product} />
+                    <SpotlightCard
+                      key={getProductListKey(product, "spotlight")}
+                      product={product}
+                    />
                   ))}
                 </div>
               </div>
@@ -448,7 +485,12 @@ function SpotlightCard({ product }: { product: ProductRecord }) {
       <div className="min-w-0 flex-1">
         <p className="line-clamp-2 text-sm font-medium text-slate-800">{product.shortName}</p>
         <div className="mt-1 flex min-w-0 flex-col items-start gap-1">
-          <span className={cn("block max-w-full truncate text-sm font-bold", hasDiscount ? "text-[#ff5a36]" : "text-slate-900")}>
+          <span
+            className={cn(
+              "block max-w-full truncate text-sm font-bold",
+              hasDiscount ? "text-[#ff5a36]" : "text-slate-900"
+            )}
+          >
             {formatPrice(product.price)}
           </span>
           <Rating value={product.rating} readOnly precision={0.5} size="small" className="max-w-full" />

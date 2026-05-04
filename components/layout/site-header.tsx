@@ -51,7 +51,7 @@ export function SiteHeader({
 
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/95 backdrop-blur-xl">
-      <div className="mx-auto flex max-w-[1440px] flex-wrap items-center gap-4 px-4 py-3 lg:px-6">
+      <div className="mx-auto flex max-w-[1560px] flex-wrap items-center gap-4 px-3 py-3 lg:px-4">
         <Link href="/" className="flex shrink-0 items-center gap-3">
           <Image src="/logo-3.png" alt="YOUDE" width={102} height={32} priority />
         </Link>
@@ -124,7 +124,7 @@ export function SiteHeader({
         className="relative border-t border-slate-200/80 bg-[#474747] text-white"
         onMouseLeave={() => setHoveredCategory(null)}
       >
-        <div className="mx-auto hidden max-w-[1440px] xl:block">
+        <div className="mx-auto hidden max-w-[1560px] xl:block">
           <div className="flex items-stretch">
             {categories.map((category) => {
               const isActive = category.name === (openCategory ?? selectedCategory);
@@ -187,7 +187,7 @@ export function SiteHeader({
           ) : null}
         </div>
 
-        <div className="mx-auto flex max-w-[1440px] flex-col gap-3 px-4 py-3 xl:hidden">
+        <div className="mx-auto flex max-w-[1560px] flex-col gap-3 px-3 py-3 xl:hidden">
           <FormControl size="small" className="bg-white">
             <InputLabel id="mobile-category-label">種類</InputLabel>
             <Select

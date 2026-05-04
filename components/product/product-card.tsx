@@ -80,9 +80,9 @@ export function ProductCard({
                 24H 到貨
               </span>
             ) : null}
-            <span className="rounded-full bg-[#f3efff] px-2 py-1 text-[11px] font-semibold text-[#6b4eff]">
+            {/* <span className="rounded-full bg-[#f3efff] px-2 py-1 text-[11px] font-semibold text-[#6b4eff]">
               {product.subcategory}
-            </span>
+            </span> */}
           </div>
         </div>
       </article>
