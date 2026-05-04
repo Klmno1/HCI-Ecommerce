@@ -180,9 +180,6 @@ export function FilterSidebar({ data, filters, onChange, onReset }: FilterSideba
                 >
                   <Rating value={rating} readOnly size="small" />
                   <span>{rating} 星以上</span>
-                  {filters.minRating === rating ? (
-                    <span className="ml-auto h-2.5 w-2.5 rounded-full bg-[#86a0ea]" />
-                  ) : null}
                 </button>
               ))}
             </div>
