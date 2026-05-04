@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import * as Accordion from "@radix-ui/react-accordion";
 import * as Slider from "@radix-ui/react-slider";
 import Checkbox from "@mui/material/Checkbox";
@@ -33,8 +34,48 @@ type FilterSidebarProps = {
 export function FilterSidebar({ data, filters, onChange, onReset }: FilterSidebarProps) {
   const min = data?.priceRange.min ?? 0;
   const max = data?.priceRange.max ?? 20000;
-  const sliderValue: [number, number] = [filters.minPrice ?? min, filters.maxPrice ?? max];
+  const clampPrice = (value: number, lower: number, upper: number) => {
+    if (!Number.isFinite(value)) {
+      return lower;
+    }
+    return Math.min(Math.max(value, lower), upper);
+  };
+
+  const normalizePriceDraft = (nextMin?: number, nextMax?: number): [number, number] => {
+    const boundedMin = clampPrice(nextMin ?? min, min, max);
+    const boundedMax = clampPrice(nextMax ?? max, min, max);
+    return boundedMin <= boundedMax ? [boundedMin, boundedMax] : [boundedMax, boundedMin];
+  };
+
+  const [priceDraft, setPriceDraft] = useState<[number, number]>(() =>
+    normalizePriceDraft(filters.minPrice, filters.maxPrice)
+  );
+  const [priceInputs, setPriceInputs] = useState<[string, string]>([
+    String(normalizePriceDraft(filters.minPrice, filters.maxPrice)[0]),
+    String(normalizePriceDraft(filters.minPrice, filters.maxPrice)[1])
+  ]);
   const showFeatureFilters = Boolean(filters.category || filters.subcategory);
+  const visualPriceDraft = normalizePriceDraft(priceDraft[0], priceDraft[1]);
+
+  useEffect(() => {
+    const [nextMin, nextMax] = normalizePriceDraft(filters.minPrice, filters.maxPrice);
+    setPriceDraft([nextMin, nextMax]);
+    setPriceInputs([String(nextMin), String(nextMax)]);
+  }, [filters.minPrice, filters.maxPrice, min, max]);
+
+  const commitPriceRange = (nextMin: number, nextMax: number) => {
+    const boundedMin = clampPrice(nextMin, min, max);
+    const boundedMax = clampPrice(nextMax, min, max);
+    const normalizedMin = Math.min(boundedMin, boundedMax);
+    const normalizedMax = Math.max(boundedMin, boundedMax);
+
+    setPriceDraft([normalizedMin, normalizedMax]);
+    setPriceInputs([String(normalizedMin), String(normalizedMax)]);
+    onChange({
+      minPrice: normalizedMin,
+      maxPrice: normalizedMax
+    });
+  };
 
   const handleFeatureToggle = (feature: string, value: string, checked: boolean) => {
     const current = filters.featureFilters[feature] ?? [];
@@ -69,12 +110,18 @@ export function FilterSidebar({ data, filters, onChange, onReset }: FilterSideba
           <AccordionSection title="價格範圍" value="price">
             <div className="space-y-4">
               <Slider.Root
-                value={sliderValue}
+                value={visualPriceDraft}
                 min={min}
                 max={max}
                 step={100}
                 minStepsBetweenThumbs={1}
-                onValueCommit={(values) => onChange({ minPrice: values[0], maxPrice: values[1] })}
+                onValueChange={(values) =>
+                  setPriceDraft([
+                    clampPrice(values[0], min, max),
+                    clampPrice(values[1], min, max)
+                  ])
+                }
+                onValueCommit={(values) => commitPriceRange(values[0], values[1])}
                 className="relative flex h-6 items-center"
               >
                 <Slider.Track className="relative h-1.5 grow rounded-full bg-slate-200">
@@ -83,9 +130,29 @@ export function FilterSidebar({ data, filters, onChange, onReset }: FilterSideba
                 <Slider.Thumb className="block h-4 w-4 rounded-full border-2 border-white bg-[#3965ff] shadow" />
                 <Slider.Thumb className="block h-4 w-4 rounded-full border-2 border-white bg-[#3965ff] shadow" />
               </Slider.Root>
-              <div className="flex gap-2">
-                <PriceInput value={filters.minPrice ?? min} label="最低" />
-                <PriceInput value={filters.maxPrice ?? max} label="最高" />
+              <div className="grid grid-cols-2 gap-2">
+                <PriceInput
+                  label="最低"
+                  value={priceInputs[0]}
+                  currentValue={visualPriceDraft[0]}
+                  min={min}
+                  max={visualPriceDraft[1]}
+                  onDraftChange={(value) =>
+                    setPriceInputs((current) => [value, current[1]])
+                  }
+                  onCommit={(value) => commitPriceRange(value, visualPriceDraft[1])}
+                />
+                <PriceInput
+                  label="最高"
+                  value={priceInputs[1]}
+                  currentValue={visualPriceDraft[1]}
+                  min={visualPriceDraft[0]}
+                  max={max}
+                  onDraftChange={(value) =>
+                    setPriceInputs((current) => [current[0], value])
+                  }
+                  onCommit={(value) => commitPriceRange(visualPriceDraft[0], value)}
+                />
               </div>
             </div>
           </AccordionSection>
@@ -114,9 +181,9 @@ export function FilterSidebar({ data, filters, onChange, onReset }: FilterSideba
           <AccordionSection title="配送方式" value="delivery">
             <div className="space-y-1.5">
               {[
-                { label: "全部", value: "all" as const },
-                { label: "24H 到貨", value: "24h" as const },
-                { label: "一般配送", value: "normal" as const }
+                { label: "全部", value: "all" as const, hint: "" },
+                { label: "24H 到貨", value: "24h" as const, hint: "快速" },
+                { label: "一般配送", value: "normal" as const, hint: "標準" }
               ].map((option) => (
                 <button
                   key={option.value}
@@ -130,9 +197,7 @@ export function FilterSidebar({ data, filters, onChange, onReset }: FilterSideba
                   )}
                 >
                   <span>{option.label}</span>
-                  <span className="text-[11px] text-slate-400">
-                    {option.value === "24h" ? "快速" : option.value === "normal" ? "標準" : ""}
-                  </span>
+                  <span className="text-[11px] text-slate-400">{option.hint}</span>
                 </button>
               ))}
             </div>
@@ -196,11 +261,55 @@ function AccordionSection({
   );
 }
 
-function PriceInput({ label, value }: { label: string; value: number }) {
+function PriceInput({
+  label,
+  value,
+  currentValue,
+  min,
+  max,
+  onDraftChange,
+  onCommit
+}: {
+  label: string;
+  value: string;
+  currentValue: number;
+  min: number;
+  max: number;
+  onDraftChange: (value: string) => void;
+  onCommit: (value: number) => void;
+}) {
+  const commitValue = (rawValue: string, fallbackValue: number) => {
+    if (rawValue.trim() === "") {
+      onCommit(fallbackValue);
+      return;
+    }
+
+    const next = Number(rawValue);
+    if (Number.isFinite(next)) {
+      onCommit(next);
+    }
+  };
+
   return (
-    <div className="flex flex-1 items-center justify-between rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600">
-      <span>{label}</span>
-      <span>{value}</span>
-    </div>
+    <label className="flex min-w-0 flex-col gap-1 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600">
+      <span className="text-xs leading-5 text-slate-500">{label}</span>
+      <input
+        type="number"
+        inputMode="numeric"
+        value={value}
+        min={min}
+        max={max}
+        onChange={(event) => {
+          onDraftChange(event.target.value);
+        }}
+        onBlur={(event) => commitValue(event.currentTarget.value, currentValue)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") {
+            event.currentTarget.blur();
+          }
+        }}
+        className="w-full min-w-0 border-0 bg-transparent text-right text-base tabular-nums outline-none"
+      />
+    </label>
   );
 }

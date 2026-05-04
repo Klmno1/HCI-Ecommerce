@@ -7,7 +7,6 @@ import { Badge, FormControl, IconButton, InputLabel, MenuItem, Select } from "@m
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
 import ShoppingCartOutlinedIcon from "@mui/icons-material/ShoppingCartOutlined";
 import PersonOutlineRoundedIcon from "@mui/icons-material/PersonOutlineRounded";
-import ExpandMoreRoundedIcon from "@mui/icons-material/ExpandMoreRounded";
 import { useCart } from "@/components/providers/cart-provider";
 import { cn } from "@/lib/utils";
 
@@ -96,9 +95,6 @@ export function SiteHeader({
           </IconButton>
           <IconButton aria-label="會員中心">
             <PersonOutlineRoundedIcon />
-          </IconButton>
-          <IconButton aria-label="更多功能">
-            <ExpandMoreRoundedIcon />
           </IconButton>
         </div>
 

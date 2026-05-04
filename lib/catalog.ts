@@ -236,26 +236,57 @@ function sortProducts(items: ProductRecord[], sort: CatalogFilters["sort"]) {
 
 export function getCatalog(filters: CatalogFilters = {}): CatalogResponse {
   const { products, categories } = loadProducts();
-  let filtered = [...products];
+  let scopedProducts = [...products];
 
   if (filters.category) {
-    filtered = filtered.filter((product) => product.category === filters.category);
+    scopedProducts = scopedProducts.filter((product) => product.category === filters.category);
   }
 
   if (filters.subcategory) {
-    filtered = filtered.filter((product) => product.subcategory === filters.subcategory);
+    scopedProducts = scopedProducts.filter((product) => product.subcategory === filters.subcategory);
   }
 
-  filtered = filterBySearch(filtered, filters.search);
+  const baseProducts = filterBySearch([...scopedProducts], filters.search);
+  const allPrices = baseProducts.map((product) => product.price);
+  const priceRange = {
+    min: allPrices.length ? Math.min(...allPrices) : 0,
+    max: allPrices.length ? Math.max(...allPrices) : 0
+  };
 
-  const { minPrice, maxPrice, minRating } = filters;
+  const clampPrice = (value: number, lower: number, upper: number) => {
+    if (!Number.isFinite(value)) {
+      return lower;
+    }
+    return Math.min(Math.max(value, lower), upper);
+  };
 
-  if (typeof minPrice === "number") {
-    filtered = filtered.filter((product) => product.price >= minPrice);
+  const normalizePrice = (value: number | undefined, fallback: number) =>
+    typeof value === "number" ? clampPrice(value, priceRange.min, priceRange.max) : fallback;
+
+  const normalizedMinPrice =
+    typeof filters.minPrice === "number" ? normalizePrice(filters.minPrice, priceRange.min) : undefined;
+  const normalizedMaxPrice =
+    typeof filters.maxPrice === "number" ? normalizePrice(filters.maxPrice, priceRange.max) : undefined;
+
+  const activeMinPrice =
+    typeof normalizedMinPrice === "number" || typeof normalizedMaxPrice === "number"
+      ? Math.min(normalizedMinPrice ?? priceRange.min, normalizedMaxPrice ?? priceRange.max)
+      : undefined;
+  const activeMaxPrice =
+    typeof normalizedMinPrice === "number" || typeof normalizedMaxPrice === "number"
+      ? Math.max(normalizedMinPrice ?? priceRange.min, normalizedMaxPrice ?? priceRange.max)
+      : undefined;
+
+  let filtered = [...baseProducts];
+
+  const { minRating } = filters;
+
+  if (typeof activeMinPrice === "number") {
+    filtered = filtered.filter((product) => product.price >= activeMinPrice);
   }
 
-  if (typeof maxPrice === "number") {
-    filtered = filtered.filter((product) => product.price <= maxPrice);
+  if (typeof activeMaxPrice === "number") {
+    filtered = filtered.filter((product) => product.price <= activeMaxPrice);
   }
 
   if (typeof minRating === "number" && minRating > 0) {
@@ -275,7 +306,7 @@ export function getCatalog(filters: CatalogFilters = {}): CatalogResponse {
     filters.category || filters.subcategory
       ? Object.fromEntries(
           Array.from(
-            filtered.reduce<Map<string, Set<string>>>((map, product) => {
+            scopedProducts.reduce<Map<string, Set<string>>>((map, product) => {
               Object.entries(product.features).forEach(([key, value]) => {
                 if (!map.has(key)) {
                   map.set(key, new Set());
@@ -290,12 +321,6 @@ export function getCatalog(filters: CatalogFilters = {}): CatalogResponse {
             .slice(0, 10)
         )
       : {};
-
-  const allPrices = filtered.map((product) => product.price);
-  const priceRange = {
-    min: allPrices.length ? Math.min(...allPrices) : 0,
-    max: allPrices.length ? Math.max(...allPrices) : 0
-  };
 
   const pageSize = filters.pageSize ?? 16;
   const page = Math.max(filters.page ?? 1, 1);

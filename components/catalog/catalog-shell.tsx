@@ -74,6 +74,26 @@ function readFiltersFromParams(params: URLSearchParams): FilterState {
   const delivery = params.get("delivery");
   const featureFilters = params.get("featureFilters");
 
+  let parsedFeatureFilters: Record<string, string[]> = {};
+  if (featureFilters) {
+    try {
+      const parsed = JSON.parse(featureFilters);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        parsedFeatureFilters = Object.entries(parsed).reduce<Record<string, string[]>>(
+          (acc, [key, value]) => {
+            if (typeof key === "string" && Array.isArray(value) && value.every((item) => typeof item === "string")) {
+              acc[key] = value;
+            }
+            return acc;
+          },
+          {}
+        );
+      }
+    } catch {
+      parsedFeatureFilters = {};
+    }
+  }
+
   return {
     search: params.get("search") ?? "",
     category: params.get("category") ?? "",
@@ -82,7 +102,7 @@ function readFiltersFromParams(params: URLSearchParams): FilterState {
     maxPrice: maxPrice ? Number(maxPrice) : undefined,
     minRating: minRating ? Number(minRating) : 0,
     delivery: delivery === "24h" || delivery === "normal" ? delivery : "all",
-    featureFilters: featureFilters ? JSON.parse(featureFilters) : {},
+    featureFilters: parsedFeatureFilters,
     sort:
       sort === "price-asc" || sort === "price-desc" || sort === "popular"
         ? sort
@@ -162,6 +182,22 @@ export function CatalogShell() {
     updateRoute(next);
   };
 
+  const resetPriceForScopeChange = (patch: Partial<FilterState>) =>
+    patchFilters({
+      ...patch,
+      search: "",
+      minPrice: undefined,
+      maxPrice: undefined,
+      page: 1
+    });
+
+  const clampPrice = (value: number, lower: number, upper: number) => {
+    if (!Number.isFinite(value)) {
+      return lower;
+    }
+    return Math.min(Math.max(value, lower), upper);
+  };
+
   useEffect(() => {
     if (!data || !filters.category || !filters.subcategory) {
       return;
@@ -172,10 +208,39 @@ export function CatalogShell() {
       patchFilters({
         subcategory: "",
         featureFilters: {},
+        minPrice: undefined,
+        maxPrice: undefined,
         page: 1
       });
     }
   }, [data, filters.category, filters.subcategory]);
+
+  useEffect(() => {
+    if (!data) {
+      return;
+    }
+
+    const { min: rangeMin, max: rangeMax } = data.priceRange;
+    const hasPriceFilter =
+      typeof filters.minPrice === "number" || typeof filters.maxPrice === "number";
+
+    if (!hasPriceFilter) {
+      return;
+    }
+
+    const currentMin = clampPrice(filters.minPrice ?? rangeMin, rangeMin, rangeMax);
+    const currentMax = clampPrice(filters.maxPrice ?? rangeMax, rangeMin, rangeMax);
+    const normalizedMin = Math.min(currentMin, currentMax);
+    const normalizedMax = Math.max(currentMin, currentMax);
+
+    if (normalizedMin !== filters.minPrice || normalizedMax !== filters.maxPrice) {
+      patchFilters({
+        minPrice: normalizedMin,
+        maxPrice: normalizedMax,
+        page: 1
+      });
+    }
+  }, [data?.priceRange.min, data?.priceRange.max, filters.minPrice, filters.maxPrice]);
 
   const selectedCategoryName = filters.subcategory
     ? `${filters.category} - ${filters.subcategory}`
@@ -189,41 +254,45 @@ export function CatalogShell() {
         selectedCategory={filters.category}
         selectedSubcategory={filters.subcategory}
         onSearchChange={setDraftSearch}
-        onSearchSubmit={() => patchFilters({ search: draftSearch, page: 1 })}
+        onSearchSubmit={() => {
+          patchFilters({ search: draftSearch, page: 1 });
+          setDraftSearch("");
+        }}
         onCartOpen={() => setCartOpen(true)}
         onCategoryChange={(value) =>
-          patchFilters({
+          resetPriceForScopeChange({
             category: value,
             subcategory: "",
-            featureFilters: {},
-            page: 1
+            featureFilters: {}
           })
         }
         onSubcategoryChange={(value) =>
-          patchFilters({
+          resetPriceForScopeChange({
             subcategory: value,
-            featureFilters: {},
-            page: 1
+            featureFilters: {}
           })
         }
         onCategorySubcategoryChange={(category, subcategory) =>
-          patchFilters({
+          resetPriceForScopeChange({
             category,
             subcategory,
-            featureFilters: {},
-            page: 1
+            featureFilters: {}
           })
         }
       />
 
       <main className="mx-auto flex max-w-[1440px] gap-4 px-4 py-5 lg:px-6">
         <FilterSidebar
+          key={`${filters.category}::${filters.subcategory}`}
           data={data}
           filters={filters}
           onChange={(next) => patchFilters({ ...next, page: 1 })}
           onReset={() => {
-            setDraftSearch("");
-            patchFilters(defaultFilters);
+            patchFilters({
+              ...defaultFilters,
+              category: filters.category,
+              subcategory: filters.subcategory
+            });
           }}
         />
 

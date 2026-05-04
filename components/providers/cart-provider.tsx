@@ -17,14 +17,39 @@ const CartContext = createContext<CartContextValue | null>(null);
 
 const storageKey = "youde-cart";
 
+function safeParseCartItems(value: string | null): CartItem[] {
+  if (!value) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(value);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return parsed.filter((item): item is CartItem => {
+      return Boolean(
+        item &&
+          typeof item.id === "string" &&
+          typeof item.name === "string" &&
+          typeof item.price === "number" &&
+          typeof item.originalPrice === "number" &&
+          typeof item.quantity === "number" &&
+          typeof item.imageText === "string" &&
+          typeof item.subcategory === "string"
+      );
+    });
+  } catch {
+    return [];
+  }
+}
+
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
 
   useEffect(() => {
-    const cached = window.localStorage.getItem(storageKey);
-    if (cached) {
-      setItems(JSON.parse(cached));
-    }
+    setItems(safeParseCartItems(window.localStorage.getItem(storageKey)));
   }, []);
 
   useEffect(() => {
