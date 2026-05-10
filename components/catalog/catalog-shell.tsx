@@ -214,13 +214,6 @@ export function CatalogShell() {
       page: 1
     });
 
-  const clampPrice = (value: number, lower: number, upper: number) => {
-    if (!Number.isFinite(value)) {
-      return lower;
-    }
-    return Math.min(Math.max(value, lower), upper);
-  };
-
   useEffect(() => {
     if (!data || !filters.category || !filters.subcategory) {
       return;
@@ -239,33 +232,6 @@ export function CatalogShell() {
       });
     }
   }, [data, filters.category, filters.subcategory]);
-
-  useEffect(() => {
-    if (!data) {
-      return;
-    }
-
-    const { min: rangeMin, max: rangeMax } = data.priceRange;
-    const hasPriceFilter =
-      typeof filters.minPrice === "number" || typeof filters.maxPrice === "number";
-
-    if (!hasPriceFilter) {
-      return;
-    }
-
-    const currentMin = clampPrice(filters.minPrice ?? rangeMin, rangeMin, rangeMax);
-    const currentMax = clampPrice(filters.maxPrice ?? rangeMax, rangeMin, rangeMax);
-    const normalizedMin = Math.min(currentMin, currentMax);
-    const normalizedMax = Math.max(currentMin, currentMax);
-
-    if (normalizedMin !== filters.minPrice || normalizedMax !== filters.maxPrice) {
-      patchFilters({
-        minPrice: normalizedMin,
-        maxPrice: normalizedMax,
-        page: 1
-      });
-    }
-  }, [data?.priceRange.min, data?.priceRange.max, filters.minPrice, filters.maxPrice]);
 
   const selectedCategoryName = filters.subcategory
     ? `${filters.category} - ${filters.subcategory}`
@@ -316,9 +282,16 @@ export function CatalogShell() {
           onChange={(next) => patchFilters({ ...next, page: 1 })}
           onReset={() => {
             patchFilters({
-              ...defaultFilters,
+              search: filters.search,
               category: filters.category,
-              subcategory: filters.subcategory
+              subcategory: filters.subcategory,
+              minPrice: undefined,
+              maxPrice: undefined,
+              minRating: 0,
+              delivery: "all",
+              featureFilters: {},
+              sort: "recommended",
+              page: 1
             });
           }}
         />
