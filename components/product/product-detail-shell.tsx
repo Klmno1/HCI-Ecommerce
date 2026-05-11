@@ -1,13 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import Rating from "@mui/material/Rating";
-import ShoppingCartOutlinedIcon from "@mui/icons-material/ShoppingCartOutlined";
-import LocalShippingOutlinedIcon from "@mui/icons-material/LocalShippingOutlined";
 import ArrowBackRoundedIcon from "@mui/icons-material/ArrowBackRounded";
+import LocalShippingOutlinedIcon from "@mui/icons-material/LocalShippingOutlined";
+import ShoppingCartOutlinedIcon from "@mui/icons-material/ShoppingCartOutlined";
+import Rating from "@mui/material/Rating";
 import { CartDrawer } from "@/components/catalog/cart-drawer";
 import { SiteHeader } from "@/components/layout/site-header";
+import { useExperiment } from "@/components/providers/experiment-provider";
 import { AddToCartButton } from "@/components/product/add-to-cart-button";
 import type { ProductRecord } from "@/lib/types";
 import { formatPrice } from "@/lib/utils";
@@ -17,11 +18,30 @@ type ProductDetailShellProps = {
   categories: { name: string; subcategories: string[] }[];
 };
 
+const detailSections = ["細節圖片 1", "細節圖片 2", "細節圖片 3"];
+
 export function ProductDetailShell({ product, categories }: ProductDetailShellProps) {
   const router = useRouter();
+  const { logEvent } = useExperiment();
   const [search, setSearch] = useState(product.searchKeyword);
   const [cartOpen, setCartOpen] = useState(false);
   const hasDiscount = product.originalPrice > product.price;
+  const productHighlights = [product.tagline, product.description, product.introduction, product.note]
+    .filter((entry): entry is string => Boolean(entry))
+    .slice(0, 4);
+
+  useEffect(() => {
+    logEvent({
+      action: "product_open",
+      target: "product-detail-page",
+      label: product.shortName || product.name,
+      value: {
+        productId: product.id,
+        category: product.category,
+        subcategory: product.subcategory
+      }
+    });
+  }, [logEvent, product.category, product.id, product.name, product.shortName, product.subcategory]);
 
   const routeToCatalog = (params: Record<string, string>) => {
     const searchParams = new URLSearchParams();
@@ -41,8 +61,19 @@ export function ProductDetailShell({ product, categories }: ProductDetailShellPr
         selectedCategory={product.category}
         selectedSubcategory={product.subcategory}
         onSearchChange={setSearch}
-        onSearchSubmit={() => routeToCatalog({ search })}
-        onCartOpen={() => setCartOpen(true)}
+        onSearchSubmit={() => {
+          routeToCatalog({ search });
+          logEvent({
+            action: "search_submit",
+            target: "product-detail-search",
+            label: search.trim() || "empty-search",
+            value: { keyword: search.trim(), scope: "product-detail" }
+          });
+        }}
+        onCartOpen={() => {
+          setCartOpen(true);
+          logEvent({ action: "cart_open", target: "product-detail-header" });
+        }}
         onCategoryChange={(value) => routeToCatalog({ category: value })}
         onSubcategoryChange={(value) =>
           routeToCatalog({
@@ -62,27 +93,43 @@ export function ProductDetailShell({ product, categories }: ProductDetailShellPr
         <div className="mx-auto max-w-[1320px]">
           <button
             type="button"
-            onClick={() =>
+            onClick={() => {
+              logEvent({
+                action: "subcategory_select",
+                target: "product-detail-back",
+                label: `${product.category} / ${product.subcategory}`
+              });
               routeToCatalog({
                 category: product.category,
                 subcategory: product.subcategory
-              })
-            }
+              });
+            }}
             className="mb-4 inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-slate-600 shadow-sm"
           >
             <ArrowBackRoundedIcon fontSize="small" />
-            回到商品列表
+            返回商品列表
           </button>
 
           <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
             <div className="glass-panel rounded-2xl p-6">
               <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
                 <div className="space-y-4">
-                  <div className="flex aspect-[4/4.2] items-center justify-center rounded-2xl bg-slate-100 p-8 text-center text-lg font-medium text-slate-500">
-                    {product.imageUrl ? "這裡可以接上正式商品圖片" : product.imageText}
+                  <div className="overflow-hidden rounded-2xl bg-slate-100">
+                    {product.imageUrl ? (
+                      <img
+                        src={product.imageUrl}
+                        alt={product.name}
+                        className="aspect-[4/4.2] h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex aspect-[4/4.2] items-center justify-center p-8 text-center text-lg font-medium text-slate-500">
+                        {product.imageText}
+                      </div>
+                    )}
                   </div>
+
                   <div className="grid grid-cols-3 gap-3">
-                    {["細節圖預留", "情境圖預留", "包裝圖預留"].map((label) => (
+                    {detailSections.map((label) => (
                       <div
                         key={label}
                         className="flex aspect-square items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white text-center text-xs text-slate-400"
@@ -91,6 +138,26 @@ export function ProductDetailShell({ product, categories }: ProductDetailShellPr
                       </div>
                     ))}
                   </div>
+
+                  <section className="rounded-2xl border border-slate-200 bg-white p-5">
+                    <h2 className="text-lg font-bold text-slate-900">商品敘述</h2>
+                    <div className="mt-4 space-y-3">
+                      {productHighlights.length > 0 ? (
+                        productHighlights.map((entry, index) => (
+                          <div
+                            key={`${entry}-${index}`}
+                            className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-7 text-slate-600"
+                          >
+                            {entry}
+                          </div>
+                        ))
+                      ) : (
+                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
+                          目前沒有商品敘述。
+                        </div>
+                      )}
+                    </div>
+                  </section>
                 </div>
 
                 <div>
@@ -98,13 +165,10 @@ export function ProductDetailShell({ product, categories }: ProductDetailShellPr
                     {product.category} / {product.subcategory}
                   </p>
                   <h1 className="mt-3 text-3xl font-bold text-slate-900">{product.name}</h1>
-                  <p className="mt-3 text-base text-slate-600">
-                    {product.tagline || product.description || "精選規格配置，適合日常與專業使用。"}
-                  </p>
 
                   <div className="mt-4 flex items-center gap-3">
                     <Rating value={product.rating} precision={0.1} readOnly />
-                    <span className="text-sm text-slate-500">{product.reviewCount} 則評論</span>
+                    <span className="text-sm text-slate-500">{product.reviewCount} 則評價</span>
                   </div>
 
                   <div className="mt-6 rounded-2xl bg-[#f7f9ff] p-5">
@@ -121,7 +185,7 @@ export function ProductDetailShell({ product, categories }: ProductDetailShellPr
                       ) : null}
                     </div>
                     <div className="mt-4 flex flex-wrap gap-2">
-                      {hasDiscount ? (
+                      {hasDiscount && product.discountLabel ? (
                         <span className="rounded-full bg-[#edf2ff] px-3 py-1 text-sm font-semibold text-[#2147d1]">
                           {product.discountLabel}
                         </span>
@@ -137,8 +201,8 @@ export function ProductDetailShell({ product, categories }: ProductDetailShellPr
                   <div className="mt-6 grid gap-3 sm:grid-cols-2">
                     <InfoBadge
                       icon={<LocalShippingOutlinedIcon fontSize="small" />}
-                      label="配送模式"
-                      value={product.is24h ? "快速到貨" : "一般配送"}
+                      label="配送方式"
+                      value={product.is24h ? "24H 到貨" : "一般配送"}
                     />
                     <InfoBadge
                       icon={<ShoppingCartOutlinedIcon fontSize="small" />}
@@ -153,7 +217,7 @@ export function ProductDetailShell({ product, categories }: ProductDetailShellPr
                       type="button"
                       className="rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700"
                     >
-                      立即購買
+                      收藏商品
                     </button>
                   </div>
                 </div>
@@ -162,39 +226,23 @@ export function ProductDetailShell({ product, categories }: ProductDetailShellPr
 
             <div className="space-y-6">
               <section className="glass-panel rounded-2xl p-6">
-                <h2 className="text-lg font-bold text-slate-900">商品亮點</h2>
-                <div className="mt-4 space-y-3">
-                  {[product.tagline, product.description, product.introduction, product.note]
-                    .filter(Boolean)
-                    .slice(0, 4)
-                    .map((entry, index) => (
-                      <div
-                        key={`${entry}-${index}`}
-                        className="rounded-xl border border-slate-200 bg-white/80 p-4 text-sm leading-6 text-slate-600"
-                      >
-                        {entry}
-                      </div>
-                    ))}
-                </div>
-              </section>
-
-              <section className="glass-panel rounded-2xl p-6">
-                <h2 className="text-lg font-bold text-slate-900">商品規格與特徵</h2>
+                <h2 className="text-lg font-bold text-slate-900">商品規格與資訊</h2>
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
                   {Object.entries(product.features).map(([key, value]) => (
                     <div key={key} className="rounded-xl border border-slate-200 bg-white p-4">
                       <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">{key}</p>
-                      <p className="mt-2 text-sm text-slate-700">{value || "未提供"}</p>
+                      <p className="mt-2 text-sm text-slate-700">{value || "未標示"}</p>
                     </div>
                   ))}
                 </div>
               </section>
 
               <section className="rounded-2xl bg-gradient-to-br from-[#1d4fff] to-[#7aa2ff] p-6 text-white shadow-[0_20px_45px_rgba(57,101,255,0.24)]">
-                <p className="text-sm font-semibold text-white/75">加值服務</p>
-                <h2 className="mt-2 text-2xl font-bold">延長保固與快速配送方案</h2>
+                <p className="text-sm font-semibold text-white/75">購買提醒</p>
+                <h2 className="mt-2 text-2xl font-bold">下單前請再次確認配送、規格與適用情境</h2>
                 <p className="mt-3 text-sm leading-6 text-white/85">
-                  這裡保留給後續的推薦搭配、延保方案、加購配件與更多圖片資訊。
+                  若商品有尺寸、材質或配件差異，請以商品規格欄位與圖片資訊為準；若需快速到貨，也請留意是否標示
+                  24H 到貨。
                 </p>
               </section>
             </div>
@@ -202,7 +250,13 @@ export function ProductDetailShell({ product, categories }: ProductDetailShellPr
         </div>
       </main>
 
-      <CartDrawer open={cartOpen} onOpenChange={setCartOpen} />
+      <CartDrawer
+        open={cartOpen}
+        onOpenChange={(nextOpen) => {
+          setCartOpen(nextOpen);
+          logEvent({ action: nextOpen ? "cart_open" : "cart_close", target: "product-detail-cart-drawer" });
+        }}
+      />
     </div>
   );
 }
@@ -212,7 +266,7 @@ function InfoBadge({
   label,
   value
 }: {
-  icon: React.ReactNode;
+  icon: ReactNode;
   label: string;
   value: string;
 }) {

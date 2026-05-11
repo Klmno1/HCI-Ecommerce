@@ -10,7 +10,7 @@ export function AddToCartButton({ product }: { product: ProductRecord }) {
   return (
     <button
       type="button"
-      onClick={() => addItem(product)}
+      onClick={() => addItem(product, "product-detail")}
       className="inline-flex items-center gap-2 rounded-xl bg-[#3965ff] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#2147d1]"
     >
       <ShoppingCartRoundedIcon fontSize="small" />

@@ -32,6 +32,26 @@ type CatalogCache = {
 };
 
 let catalogCache: CatalogCache | null = null;
+const CATEGORY_ORDER = ["居家用品", "服飾", "3C", "食品與飲品", "生活用品"] as const;
+
+function compareCategoryOrder(a: string, b: string) {
+  const aIndex = CATEGORY_ORDER.indexOf(a as (typeof CATEGORY_ORDER)[number]);
+  const bIndex = CATEGORY_ORDER.indexOf(b as (typeof CATEGORY_ORDER)[number]);
+
+  if (aIndex !== -1 && bIndex !== -1) {
+    return aIndex - bIndex;
+  }
+
+  if (aIndex !== -1) {
+    return -1;
+  }
+
+  if (bIndex !== -1) {
+    return 1;
+  }
+
+  return a.localeCompare(b, "zh-Hant");
+}
 
 function safeNumber(value: string, fallback = 0) {
   const normalized = value.replace(/[^0-9.-]/g, "");
@@ -168,10 +188,12 @@ function loadProducts(): CatalogCache {
     categoryMap.get(mapping.category)?.add(mapping.keyword);
   }
 
-  const categories = Array.from(categoryMap.entries()).map(([name, set]) => ({
-    name,
-    subcategories: Array.from(set.values())
-  }));
+  const categories = Array.from(categoryMap.entries())
+    .map(([name, set]) => ({
+      name,
+      subcategories: Array.from(set.values()).sort((a, b) => a.localeCompare(b, "zh-Hant"))
+    }))
+    .sort((a, b) => compareCategoryOrder(a.name, b.name));
 
   catalogCache = { products, categories };
   return catalogCache;

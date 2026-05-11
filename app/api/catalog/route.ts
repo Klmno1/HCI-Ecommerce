@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCatalog } from "@/lib/catalog";
+import { getCatalog as getCatalogFromDb } from "@/lib/catalog-db";
 
 function parseFeatureFilters(value: string | null) {
   if (!value) {
@@ -14,9 +15,9 @@ function parseFeatureFilters(value: string | null) {
   }
 }
 
-export function GET(request: NextRequest) {
+export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
-  const catalog = getCatalog({
+  const filters = {
     search: searchParams.get("search") ?? undefined,
     category: searchParams.get("category") ?? undefined,
     subcategory: searchParams.get("subcategory") ?? undefined,
@@ -31,7 +32,11 @@ export function GET(request: NextRequest) {
     page: searchParams.get("page") ? Number(searchParams.get("page")) : undefined,
     pageSize: searchParams.get("pageSize") ? Number(searchParams.get("pageSize")) : undefined,
     featureFilters: parseFeatureFilters(searchParams.get("featureFilters"))
-  });
+  };
+
+  const catalog = process.env.DATABASE_URL
+    ? await getCatalogFromDb(filters)
+    : getCatalog(filters);
 
   return NextResponse.json(catalog);
 }

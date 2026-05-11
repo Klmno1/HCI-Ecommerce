@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { IconButton, Rating } from "@mui/material";
 import ShoppingCartRoundedIcon from "@mui/icons-material/ShoppingCartRounded";
 import { useCart } from "@/components/providers/cart-provider";
+import { useExperiment } from "@/components/providers/experiment-provider";
 import { getProductTags } from "@/lib/product-tags";
 import type { ProductRecord } from "@/lib/types";
 import { cn, formatPrice } from "@/lib/utils";
@@ -18,6 +19,7 @@ export function ProductCard({
 }) {
   const router = useRouter();
   const { addItem } = useCart();
+  const { logEvent } = useExperiment();
   const hasDiscount = product.originalPrice > product.price;
   const productHref = `/products/${encodeURIComponent(product.id)}`;
   const productTags = getProductTags(product);
@@ -29,28 +31,48 @@ export function ProductCard({
       prefetch
       onMouseEnter={() => router.prefetch(productHref)}
       onFocus={() => router.prefetch(productHref)}
+      onClick={() =>
+        logEvent({
+          action: "product_open",
+          target: "catalog-product-card",
+          label: product.shortName || product.name,
+          value: {
+            productId: product.id,
+            category: product.category,
+            subcategory: product.subcategory
+          }
+        })
+      }
       className="group block overflow-hidden rounded-lg border border-slate-200/90 bg-white shadow-[0_16px_30px_rgba(31,50,91,0.06)] transition hover:-translate-y-1 hover:shadow-[0_24px_40px_rgba(31,50,91,0.1)]"
     >
       <article>
         <div className="relative p-3">
-          <div
-            className={cn("relative overflow-hidden rounded-lg bg-slate-100", compact ? "h-36" : "h-44")}
-          >
+          <div className={cn("relative overflow-hidden rounded-lg bg-slate-100", compact ? "h-36" : "h-44")}>
             {discountBadgeLabel ? (
-              <div className="absolute left-2 top-2 rounded-md bg-[#3965ff] px-2 py-1 text-[11px] font-semibold text-white">
+              <div className="absolute left-2 top-2 z-10 rounded-md bg-[#3965ff] px-2 py-1 text-[11px] font-semibold text-white">
                 {discountBadgeLabel}
               </div>
             ) : null}
-            <div className="flex h-full items-center justify-center px-5 text-center text-sm text-slate-500">
-              {product.imageUrl ? "商品圖片載入中" : product.imageText}
-            </div>
+
+            {product.imageUrl ? (
+              <img
+                src={product.imageUrl}
+                alt={product.name}
+                className="h-full w-full object-cover"
+                loading="lazy"
+              />
+            ) : (
+              <div className="flex h-full items-center justify-center px-5 text-center text-sm text-slate-500">
+                {product.imageText}
+              </div>
+            )}
           </div>
 
           <IconButton
             onClick={(event) => {
               event.preventDefault();
               event.stopPropagation();
-              addItem(product);
+              addItem(product, "product-card");
             }}
             className="!absolute right-4 top-4 !bg-white"
             size="small"
@@ -66,15 +88,11 @@ export function ProductCard({
           </h3>
 
           <div className="flex items-end gap-2">
-            <span
-              className={cn("text-2xl font-bold", hasDiscount ? "text-[#ff5a36]" : "text-slate-900")}
-            >
+            <span className={cn("text-2xl font-bold", hasDiscount ? "text-[#ff5a36]" : "text-slate-900")}>
               {formatPrice(product.price)}
             </span>
             {hasDiscount ? (
-              <span className="text-sm text-slate-400 line-through">
-                {formatPrice(product.originalPrice)}
-              </span>
+              <span className="text-sm text-slate-400 line-through">{formatPrice(product.originalPrice)}</span>
             ) : null}
           </div>
 

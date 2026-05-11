@@ -10,6 +10,7 @@ import * as Tabs from "@radix-ui/react-tabs";
 import { CartDrawer } from "@/components/catalog/cart-drawer";
 import { FilterSidebar } from "@/components/catalog/filter-sidebar";
 import { SiteHeader } from "@/components/layout/site-header";
+import { useExperiment } from "@/components/providers/experiment-provider";
 import { ProductCard } from "@/components/product/product-card";
 import type { CatalogResponse, ProductRecord } from "@/lib/types";
 import { cn, formatPrice } from "@/lib/utils";
@@ -53,14 +54,14 @@ function getProductListKey(product: ProductRecord, scope: string) {
 const adCards = [
   {
     title: "品牌聯名快閃",
-    subtitle: "5折優惠",
+    subtitle: "5 折優惠",
     body: "熱門品類同步補貨",
     accent: "from-[#4b7bff] to-[#6b8cff]"
   },
   {
     title: "會員加碼禮券",
     subtitle: "滿額現折",
-    body: "首頁推薦商品可疊加",
+    body: "結帳再疊加人氣優惠",
     accent: "from-[#8348ff] to-[#e04988]"
   }
 ];
@@ -119,11 +120,13 @@ export function CatalogShell() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { logEvent } = useExperiment();
   const [filters, setFilters] = useState<FilterState>(() =>
     readFiltersFromParams(new URLSearchParams())
   );
   const [draftSearch, setDraftSearch] = useState("");
   const [cartOpen, setCartOpen] = useState(false);
+  const [showLoadingIndicator, setShowLoadingIndicator] = useState(false);
 
   useEffect(() => {
     const nextFilters = readFiltersFromParams(new URLSearchParams(searchParams.toString()));
@@ -149,9 +152,22 @@ export function CatalogShell() {
     return `/api/catalog?${params.toString()}`;
   }, [filters]);
 
-  const { data, isLoading, error } = useSWR(queryString, fetcher, {
+  const { data, isLoading, isValidating, error } = useSWR(queryString, fetcher, {
     keepPreviousData: true
   });
+
+  useEffect(() => {
+    if (!(isLoading || isValidating)) {
+      setShowLoadingIndicator(false);
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setShowLoadingIndicator(true);
+    }, 250);
+
+    return () => window.clearTimeout(timer);
+  }, [isLoading, isValidating]);
 
   const items = data?.items ?? [];
   const spotlightProducts = items.slice(0, 3);
@@ -246,32 +262,50 @@ export function CatalogShell() {
         selectedSubcategory={filters.subcategory}
         onSearchChange={setDraftSearch}
         onSearchSubmit={() => {
+          const nextSearch = draftSearch.trim();
           patchFilters({
             ...defaultFilters,
-            search: draftSearch,
+            search: nextSearch,
             page: 1
           });
           setDraftSearch("");
+          logEvent({
+            action: "search_submit",
+            target: "header-search",
+            label: nextSearch || "empty-search",
+            value: { keyword: nextSearch, scope: "all-products" }
+          });
         }}
-        onCartOpen={() => setCartOpen(true)}
-        onCategoryChange={(value) =>
+        onCartOpen={() => {
+          setCartOpen(true);
+          logEvent({ action: "cart_open", target: "header-cart-button" });
+        }}
+        onCategoryChange={(value) => {
           resetFiltersForScopeChange({
             category: value,
             subcategory: ""
-          })
-        }
-        onSubcategoryChange={(value) =>
+          });
+          logEvent({ action: "category_select", target: "header-category", label: value });
+        }}
+        onSubcategoryChange={(value) => {
           resetFiltersForScopeChange({
             category: filters.category,
             subcategory: value
-          })
-        }
-        onCategorySubcategoryChange={(category, subcategory) =>
+          });
+          logEvent({ action: "subcategory_select", target: "header-subcategory", label: value });
+        }}
+        onCategorySubcategoryChange={(category, subcategory) => {
           resetFiltersForScopeChange({
             category,
             subcategory
-          })
-        }
+          });
+          logEvent({
+            action: "subcategory_select",
+            target: "header-mega-menu",
+            label: `${category} / ${subcategory}`,
+            value: { category, subcategory }
+          });
+        }}
       />
 
       <main className="mx-auto flex max-w-[1560px] gap-4 px-3 py-5 lg:px-4">
@@ -279,7 +313,20 @@ export function CatalogShell() {
           key={`${filters.category}::${filters.subcategory}::${filters.search}`}
           data={data}
           filters={filters}
-          onChange={(next) => patchFilters({ ...next, page: 1 })}
+          onChange={(next) => {
+            patchFilters({ ...next, page: 1 });
+            logEvent({
+              action: "filter_change",
+              target: "sidebar-filter",
+              value: {
+                minPrice: next.minPrice,
+                maxPrice: next.maxPrice,
+                minRating: next.minRating,
+                delivery: next.delivery,
+                featureFilters: next.featureFilters
+              }
+            });
+          }}
           onReset={() => {
             patchFilters({
               search: filters.search,
@@ -293,6 +340,14 @@ export function CatalogShell() {
               sort: "recommended",
               page: 1
             });
+            logEvent({
+              action: "filter_reset",
+              target: "sidebar-reset",
+              value: {
+                category: filters.category,
+                subcategory: filters.subcategory
+              }
+            });
           }}
         />
 
@@ -305,13 +360,12 @@ export function CatalogShell() {
                 </p>
                 <h1 className="mt-1 text-2xl font-bold text-slate-900">{selectedCategoryName}</h1>
                 <p className="mt-1 text-sm text-slate-500">
-                  {/* {data ? `${data.total} 件商品` : "整理中"} */}
-                  {filters.search ? `，關鍵字「${filters.search}」` : ""}
+                  {filters.search ? `關鍵字：${filters.search}` : "依條件瀏覽商品"}
                 </p>
               </div>
 
               <div className="rounded-full bg-white px-4 py-2 text-sm text-slate-600 shadow-sm">
-                選取特徵
+                已選特徵
                 <span className="ml-2 font-semibold text-[#18a56f]">{selectedFeatureCount}</span>
               </div>
             </div>
@@ -321,17 +375,27 @@ export function CatalogShell() {
             <div className="space-y-4">
               <div className="glass-panel rounded-lg p-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                  <span className="text-sm font-semibold text-slate-500">
-                    {data?.total ?? 0} 件商品
-                  </span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-semibold text-slate-500">
+                      {data?.total ?? 0} 件商品
+                    </span>
+                    {showLoadingIndicator ? (
+                      <div className="flex items-center gap-2 text-sm text-slate-500">
+                        <CircularProgress size={16} />
+                        載入中...
+                      </div>
+                    ) : null}
+                  </div>
+
                   <Tabs.Root
                     value={filters.sort}
-                    onValueChange={(value) =>
+                    onValueChange={(value) => {
                       patchFilters({
                         sort: value as FilterState["sort"],
                         page: 1
-                      })
-                    }
+                      });
+                      logEvent({ action: "sort_change", target: value, label: value });
+                    }}
                   >
                     <Tabs.List className="flex flex-wrap gap-2">
                       {sortTabs.map((tab) => (
@@ -354,11 +418,11 @@ export function CatalogShell() {
                 </div>
               ) : error ? (
                 <div className="glass-panel rounded-lg p-10 text-center text-sm text-red-500">
-                  商品資料載入失敗，請稍後再試。
+                  商品資料載入失敗，請重新整理後再試。
                 </div>
               ) : items.length === 0 ? (
                 <div className="glass-panel rounded-lg p-10 text-center text-sm text-slate-500">
-                  目前沒有符合條件的商品，試著放寬搜尋字詞或調整篩選條件。
+                  目前沒有符合條件的商品，請調整搜尋或篩選條件。
                 </div>
               ) : (
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -369,16 +433,16 @@ export function CatalogShell() {
               )}
 
               <div className="rounded-lg bg-gradient-to-r from-[#4270ff] via-[#6389ff] to-[#7aa2ff] px-7 py-8 text-white shadow-[0_20px_35px_rgba(57,101,255,0.24)]">
-                <p className="text-sm font-semibold text-white/75">本週限時活動</p>
-                <h2 className="mt-2 text-3xl font-bold">最高 5 折優惠</h2>
+                <p className="text-sm font-semibold text-white/75">春季精選專題</p>
+                <h2 className="mt-2 text-3xl font-bold">限時 5 折優惠</h2>
                 <p className="mt-2 max-w-xl text-sm text-white/85">
-                  精選商品補貨中，結帳再疊加購物金與 24H 到貨專區。
+                  多款熱賣商品同步補貨，部分品項支援 24H 到貨。
                 </p>
                 <button
                   type="button"
                   className="mt-5 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-[#2147d1]"
                 >
-                  立即選購
+                  查看專題
                 </button>
               </div>
 
@@ -400,6 +464,7 @@ export function CatalogShell() {
                   onChange={(_event, page) => {
                     patchFilters({ page });
                     scrollToTop();
+                    logEvent({ action: "page_change", target: String(page), label: `page-${page}` });
                   }}
                 />
               </div>
@@ -442,7 +507,13 @@ export function CatalogShell() {
         </section>
       </main>
 
-      <CartDrawer open={cartOpen} onOpenChange={setCartOpen} />
+      <CartDrawer
+        open={cartOpen}
+        onOpenChange={(nextOpen) => {
+          setCartOpen(nextOpen);
+          logEvent({ action: nextOpen ? "cart_open" : "cart_close", target: "catalog-cart-drawer" });
+        }}
+      />
     </div>
   );
 }
@@ -453,7 +524,7 @@ function SpotlightCard({ product }: { product: ProductRecord }) {
   return (
     <div className="flex min-w-0 gap-3 overflow-hidden rounded-lg border border-slate-200/70 bg-white/80 p-2">
       <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-md bg-slate-100 px-2 text-center text-[10px] text-slate-500">
-        圖片預留
+        圖片預留區
       </div>
       <div className="min-w-0 flex-1">
         <p className="line-clamp-2 text-sm font-medium text-slate-800">{product.shortName}</p>

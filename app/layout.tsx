@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { ExperimentGate } from "@/components/experiment/experiment-gate";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { CartProvider } from "@/components/providers/cart-provider";
+import { ExperimentProvider } from "@/components/providers/experiment-provider";
 
 export const metadata: Metadata = {
   title: "YOUDE Complex",
@@ -17,7 +19,11 @@ export default function RootLayout({
     <html lang="zh-Hant">
       <body>
         <ThemeProvider>
-          <CartProvider>{children}</CartProvider>
+          <ExperimentProvider>
+            <CartProvider>
+              <ExperimentGate>{children}</ExperimentGate>
+            </CartProvider>
+          </ExperimentProvider>
         </ThemeProvider>
       </body>
     </html>

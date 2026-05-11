@@ -63,5 +63,6 @@ export type CartItem = {
   originalPrice: number;
   quantity: number;
   imageText: string;
+  imageUrl?: string | null;
   subcategory: string;
 };
