@@ -28,6 +28,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .codex-dev-server*.log
+.codex-start3001*.log
 manual3001*.log
 start3001*.log
 
