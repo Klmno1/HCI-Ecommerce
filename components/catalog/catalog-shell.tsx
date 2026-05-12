@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import CircularProgress from "@mui/material/CircularProgress";
 import Pagination from "@mui/material/Pagination";
@@ -117,7 +117,6 @@ function readFiltersFromParams(params: URLSearchParams): FilterState {
 }
 
 export function CatalogShell() {
-  const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { logEvent } = useExperiment();
@@ -173,11 +172,6 @@ export function CatalogShell() {
   const spotlightProducts = items.slice(0, 3);
   const heroRowItems = items.slice(0, 4);
   const lowerGridItems = items.slice(4, 12);
-  const selectedFeatureCount = Object.values(filters.featureFilters).reduce(
-    (sum, values) => sum + values.length,
-    0
-  );
-
   const sortTabs: Array<{ label: string; value: FilterState["sort"] }> = [
     { label: "推薦", value: "recommended" },
     { label: "價格：低到高", value: "price-asc" },
@@ -201,7 +195,7 @@ export function CatalogShell() {
     if (next.page > 1) params.set("page", String(next.page));
 
     const href = params.toString() ? `${pathname}?${params.toString()}` : pathname;
-    router.replace(href, { scroll: false });
+    window.history.replaceState(window.history.state, "", href);
   };
 
   const patchFilters = (patch: Partial<FilterState>) => {
@@ -353,21 +347,11 @@ export function CatalogShell() {
 
         <section className="min-w-0 flex-1 space-y-5">
           <div className="glass-panel rounded-lg px-5 py-10">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#3965ff]">
-                  Search Result
-                </p>
-                <h1 className="mt-1 text-2xl font-bold text-slate-900">{selectedCategoryName}</h1>
-                <p className="mt-1 text-sm text-slate-500">
-                  {filters.search ? `關鍵字：${filters.search}` : "依條件瀏覽商品"}
-                </p>
-              </div>
-
-              <div className="rounded-full bg-white px-4 py-2 text-sm text-slate-600 shadow-sm">
-                已選特徵
-                <span className="ml-2 font-semibold text-[#18a56f]">{selectedFeatureCount}</span>
-              </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#3965ff]">
+                Search Result
+              </p>
+              <h1 className="mt-1 text-2xl font-bold text-slate-900">{selectedCategoryName}</h1>
             </div>
           </div>
 

@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { IconButton, Rating } from "@mui/material";
+import { CircularProgress, IconButton, Rating } from "@mui/material";
 import ShoppingCartRoundedIcon from "@mui/icons-material/ShoppingCartRounded";
+import ImageOutlinedIcon from "@mui/icons-material/ImageOutlined";
+import { useState } from "react";
 import { useCart } from "@/components/providers/cart-provider";
 import { useExperiment } from "@/components/providers/experiment-provider";
 import { getProductTags } from "@/lib/product-tags";
@@ -20,6 +22,7 @@ export function ProductCard({
   const router = useRouter();
   const { addItem } = useCart();
   const { logEvent } = useExperiment();
+  const [isOpening, setIsOpening] = useState(false);
   const hasDiscount = product.originalPrice > product.price;
   const productHref = `/products/${encodeURIComponent(product.id)}`;
   const productTags = getProductTags(product);
@@ -31,7 +34,8 @@ export function ProductCard({
       prefetch
       onMouseEnter={() => router.prefetch(productHref)}
       onFocus={() => router.prefetch(productHref)}
-      onClick={() =>
+      onClick={() => {
+        setIsOpening(true);
         logEvent({
           action: "product_open",
           target: "catalog-product-card",
@@ -41,8 +45,8 @@ export function ProductCard({
             category: product.category,
             subcategory: product.subcategory
           }
-        })
-      }
+        });
+      }}
       className="group block overflow-hidden rounded-lg border border-slate-200/90 bg-white shadow-[0_16px_30px_rgba(31,50,91,0.06)] transition hover:-translate-y-1 hover:shadow-[0_24px_40px_rgba(31,50,91,0.1)]"
     >
       <article>
@@ -62,11 +66,21 @@ export function ProductCard({
                 loading="lazy"
               />
             ) : (
-              <div className="flex h-full items-center justify-center px-5 text-center text-sm text-slate-500">
-                {product.imageText}
+              <div className="flex h-full w-full flex-col items-center justify-center bg-[radial-gradient(circle_at_top,_rgba(57,101,255,0.08),_transparent_42%),linear-gradient(180deg,_#f8fbff_0%,_#eef3fb_100%)] px-6 text-center">
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/85 text-slate-400 shadow-sm">
+                  <ImageOutlinedIcon />
+                </div>
+                <p className="mt-4 text-sm font-semibold text-slate-500">圖片預留區</p>
+                <p className="mt-1 text-xs text-slate-400">{product.shortName}</p>
               </div>
             )}
           </div>
+
+          {isOpening ? (
+            <div className="absolute inset-3 z-10 flex items-center justify-center rounded-lg bg-white/78 backdrop-blur-[1px]">
+              <CircularProgress size={28} />
+            </div>
+          ) : null}
 
           <IconButton
             onClick={(event) => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useExperiment } from "@/components/providers/experiment-provider";
 
 function isValidEmail(value: string) {
@@ -12,6 +12,19 @@ export function ExperimentGate({ children }: { children: React.ReactNode }) {
   const [identifier, setIdentifier] = useState("");
   const [taskId, setTaskId] = useState("1");
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const shouldShowGate =
+      !participant || participant.status === "ready" || participant.status === "completed";
+
+    if (shouldShowGate && (window.location.pathname !== "/" || window.location.search)) {
+      window.location.replace("/");
+    }
+  }, [participant]);
 
   const handleRegister = async () => {
     const trimmedIdentifier = identifier.trim();
