@@ -5,7 +5,7 @@ import { CartProvider } from "@/components/providers/cart-provider";
 import { ExperimentProvider } from "@/components/providers/experiment-provider";
 
 export const metadata: Metadata = {
-  title: "YOUDE Complex",
+  title: "Interface A",
   description: "CSV driven ecommerce storefront demo built with Next.js"
 };
 

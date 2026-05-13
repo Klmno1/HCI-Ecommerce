@@ -77,7 +77,7 @@ async function getOrderedCategories() {
 }
 
 async function getAllProducts(categories: OrderedCategory[]) {
-  const products: ProductRecord[] = [];
+  const productMap = new Map<string, ProductRecord>();
   const categoryOrder = new Map<string, number>();
   const subcategoryOrder = new Map<string, number>();
 
@@ -100,13 +100,17 @@ async function getAllProducts(categories: OrderedCategory[]) {
       for (const item of catalog.items) {
         const full = getProductById(item.id);
         if (full) {
-          products.push(full);
+          productMap.set(full.id, full);
         }
       }
     }
   }
 
-  return { products, categoryOrder, subcategoryOrder };
+  return {
+    products: Array.from(productMap.values()),
+    categoryOrder,
+    subcategoryOrder
+  };
 }
 
 async function main() {
@@ -153,12 +157,13 @@ async function main() {
           image_url,
           image_urls,
           features,
+          feature_order,
           created_at,
           updated_at
         ) VALUES (
           $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
           $11, $12, $13, $14, $15, $16, $17, $18, $19, $20,
-          $21, $22, $23, $24, $25, $26::jsonb, $27::jsonb, NOW(), NOW()
+          $21, $22, $23, $24, $25, $26::jsonb, $27::jsonb, $28::jsonb, NOW(), NOW()
         )
       `,
       [
@@ -188,7 +193,8 @@ async function main() {
         product.imageText,
         imageUrl,
         JSON.stringify(imageUrls),
-        JSON.stringify(product.features)
+        JSON.stringify(product.features),
+        JSON.stringify(product.featureOrder ?? Object.keys(product.features))
       ]
     );
   }

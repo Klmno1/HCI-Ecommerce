@@ -20,6 +20,7 @@ type SiteHeaderProps = {
   categories: HeaderCategory[];
   selectedCategory: string;
   selectedSubcategory: string;
+  onHomeClick?: () => void;
   onSearchChange: (value: string) => void;
   onSearchSubmit: () => void;
   onCartOpen: () => void;
@@ -33,6 +34,7 @@ export function SiteHeader({
   categories,
   selectedCategory,
   selectedSubcategory,
+  onHomeClick,
   onSearchChange,
   onSearchSubmit,
   onCartOpen,
@@ -52,7 +54,17 @@ export function SiteHeader({
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/95 backdrop-blur-xl">
       <div className="mx-auto flex max-w-[1560px] flex-wrap items-center gap-4 px-3 py-3 lg:px-4">
-        <Link href="/" className="flex shrink-0 items-center gap-3">
+        <Link
+          href="/"
+          onClick={(event) => {
+            if (!onHomeClick) {
+              return;
+            }
+            event.preventDefault();
+            onHomeClick();
+          }}
+          className="flex shrink-0 items-center gap-3"
+        >
           <Image src="/logo-3.png" alt="YOUDE" width={102} height={32} priority />
         </Link>
 
@@ -60,19 +72,14 @@ export function SiteHeader({
           <div className="flex h-12 flex-1 items-center overflow-hidden rounded-lg border border-[#3965ff] bg-white shadow-sm">
             <input
               value={search}
-              onChange={(event) => onSearchChange(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  onSearchSubmit();
-                }
-              }}
+              disabled
               placeholder="搜尋商品、品牌..."
-              className="h-full flex-1 border-0 px-4 text-sm outline-none"
+              className="h-full flex-1 cursor-not-allowed border-0 bg-slate-100 px-4 text-sm text-slate-400 outline-none"
             />
             <button
               type="button"
-              onClick={onSearchSubmit}
-              className="flex h-full w-14 items-center justify-center bg-[#3965ff] text-white transition hover:bg-[#2147d1]"
+              disabled
+              className="flex h-full w-14 cursor-not-allowed items-center justify-center bg-slate-300 text-white"
             >
               <SearchRoundedIcon fontSize="small" />
             </button>
@@ -101,19 +108,14 @@ export function SiteHeader({
         <div className="flex w-full items-center overflow-hidden rounded-lg border border-[#3965ff] bg-white shadow-sm md:hidden">
           <input
             value={search}
-            onChange={(event) => onSearchChange(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                onSearchSubmit();
-              }
-            }}
+            disabled
             placeholder="搜尋商品、品牌..."
-            className="h-11 flex-1 border-0 px-4 text-sm outline-none"
+            className="h-11 flex-1 cursor-not-allowed border-0 bg-slate-100 px-4 text-sm text-slate-400 outline-none"
           />
           <button
             type="button"
-            onClick={onSearchSubmit}
-            className="flex h-11 w-12 items-center justify-center bg-[#3965ff] text-white"
+            disabled
+            className="flex h-11 w-12 cursor-not-allowed items-center justify-center bg-slate-300 text-white"
           >
             <SearchRoundedIcon fontSize="small" />
           </button>

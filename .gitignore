@@ -28,6 +28,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .codex-dev-server*.log
+.codex-dev3001*.log
 .codex-start3001*.log
 manual3001*.log
 start3001*.log
@@ -46,6 +47,8 @@ SETTUP.md
 
 # vercel
 .vercel
+.vercel-appdata/
+.vercel-localappdata/
 
 # typescript
 *.tsbuildinfo

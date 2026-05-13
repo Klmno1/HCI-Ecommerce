@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS products (
   image_url TEXT,
   image_urls JSONB NOT NULL DEFAULT '[]'::jsonb,
   features JSONB NOT NULL DEFAULT '{}'::jsonb,
+  feature_order JSONB NOT NULL DEFAULT '[]'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -79,5 +80,9 @@ export async function ensureDatabaseSchema() {
   await pool.query(`
     ALTER TABLE products
     ADD COLUMN IF NOT EXISTS subcategory_order INTEGER NOT NULL DEFAULT 9999
+  `);
+  await pool.query(`
+    ALTER TABLE products
+    ADD COLUMN IF NOT EXISTS feature_order JSONB NOT NULL DEFAULT '[]'::jsonb
   `);
 }

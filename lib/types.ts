@@ -23,6 +23,7 @@ export type ProductRecord = {
   imageText: string;
   imageUrl: string | null;
   features: Record<string, string>;
+  featureOrder?: string[];
 };
 
 export type CategoryMapping = {

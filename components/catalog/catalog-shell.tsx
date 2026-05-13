@@ -254,6 +254,11 @@ export function CatalogShell() {
         categories={data?.categories ?? []}
         selectedCategory={filters.category}
         selectedSubcategory={filters.subcategory}
+        onHomeClick={() => {
+          setFilters(defaultFilters);
+          setDraftSearch("");
+          window.location.assign("/");
+        }}
         onSearchChange={setDraftSearch}
         onSearchSubmit={() => {
           const nextSearch = draftSearch.trim();

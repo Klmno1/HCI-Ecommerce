@@ -30,6 +30,7 @@ type ProductRow = {
   image_url: string | null;
   image_urls: string[] | null;
   features: Record<string, string> | null;
+  feature_order: string[] | null;
 };
 
 type CatalogCache = {
@@ -40,8 +41,53 @@ type CatalogCache = {
 let cachedCatalog: CatalogCache | null = null;
 let cachedAt = 0;
 const cacheTtlMs = 30_000;
+const brandFeatureKey = "品牌";
+const searchKeywordFeatureKey = "搜尋關鍵字";
+
+function uniqueInOrder(values: string[]) {
+  const seen = new Set<string>();
+  return values.filter((value) => {
+    if (seen.has(value)) {
+      return false;
+    }
+    seen.add(value);
+    return true;
+  });
+}
+
+function splitFeatureValue(value: string) {
+  return uniqueInOrder(
+    value
+      .split(/[,\uff0c\u3001]/)
+      .map((part) => part.trim())
+      .filter(Boolean)
+  );
+}
+
+function productFeatureValues(product: ProductRecord, feature: string) {
+  if (feature === brandFeatureKey) {
+    return product.brand.trim() ? [product.brand.trim()] : [];
+  }
+
+  const current = product.features[feature];
+  return current ? splitFeatureValue(current) : [];
+}
+
+function orderedFeatureNames(items: ProductRecord[]) {
+  const names: string[] = [brandFeatureKey];
+
+  for (const product of items) {
+    const featureOrder = product.featureOrder?.length ? product.featureOrder : Object.keys(product.features);
+    names.push(...featureOrder.map((key) => key.trim()).filter(Boolean));
+  }
+
+  return uniqueInOrder(names).filter((name) => name !== searchKeywordFeatureKey);
+}
 
 function mapProductRow(row: ProductRow): ProductRecord {
+  const imageUrls = Array.isArray(row.image_urls) ? row.image_urls : [];
+  const featureOrder = Array.isArray(row.feature_order) ? row.feature_order : Object.keys(row.features ?? {});
+
   return {
     id: row.id,
     rawId: row.raw_id,
@@ -65,10 +111,42 @@ function mapProductRow(row: ProductRow): ProductRecord {
     subcategory: row.subcategory,
     sourceFile: row.source_file,
     imageText: row.image_text,
-    imageUrl: row.image_url,
-    features: row.features ?? {}
+    imageUrl: row.image_url ?? imageUrls[0] ?? null,
+    features: row.features ?? {},
+    featureOrder
   };
 }
+
+const productSelectColumns = `
+  id,
+  raw_id,
+  name,
+  short_name,
+  brand,
+  description,
+  tagline,
+  detail,
+  introduction,
+  note,
+  price,
+  original_price,
+  rating,
+  review_count,
+  is_24h,
+  discount_value,
+  discount_label,
+  search_keyword,
+  category,
+  subcategory,
+  category_order,
+  subcategory_order,
+  source_file,
+  image_text,
+  image_url,
+  image_urls,
+  features,
+  feature_order
+`;
 
 async function loadCatalog(): Promise<CatalogCache> {
   if (cachedCatalog && Date.now() - cachedAt < cacheTtlMs) {
@@ -77,36 +155,9 @@ async function loadCatalog(): Promise<CatalogCache> {
 
   const pool = getPostgresPool();
   const result = await pool.query<ProductRow>(`
-    SELECT
-      id,
-      raw_id,
-      name,
-      short_name,
-      brand,
-      description,
-      tagline,
-      detail,
-      introduction,
-      note,
-      price,
-      original_price,
-      rating,
-      review_count,
-      is_24h,
-      discount_value,
-      discount_label,
-      search_keyword,
-      category,
-      subcategory,
-      category_order,
-      subcategory_order,
-      source_file,
-      image_text,
-      image_url,
-      image_urls,
-      features
+    SELECT ${productSelectColumns}
     FROM products
-    ORDER BY category_order, subcategory_order, raw_id
+    ORDER BY category_order ASC, subcategory_order ASC, source_file ASC, raw_id ASC
   `);
 
   const products = result.rows.map(mapProductRow);
@@ -172,9 +223,30 @@ function filterByFeatures(items: ProductRecord[], featureFilters?: Record<string
       if (!values.length) {
         return true;
       }
-      const current = product.features[feature];
-      return current ? values.includes(current) : false;
+
+      return productFeatureValues(product, feature).some((value) => values.includes(value));
     })
+  );
+}
+
+function getAvailableFeatures(items: ProductRecord[]) {
+  return Object.fromEntries(
+    orderedFeatureNames(items)
+      .map((key): [string, string[]] => {
+        if (key === brandFeatureKey) {
+          const values = uniqueInOrder(
+            items.map((product) => product.brand.trim()).filter(Boolean)
+          );
+          return [key, values];
+        }
+
+        const values = uniqueInOrder(
+          items.flatMap((product) => productFeatureValues(product, key))
+        );
+
+        return [key, values];
+      })
+      .filter(([, values]) => values.length > 1)
   );
 }
 
@@ -230,24 +302,7 @@ export async function getCatalog(filters: CatalogFilters = {}): Promise<CatalogR
   filtered = sortProducts(filtered, filters.sort);
 
   const availableFeatures =
-    filters.category || filters.subcategory
-      ? Object.fromEntries(
-          Array.from(
-            featureSource.reduce<Map<string, Set<string>>>((map, product) => {
-              Object.entries(product.features).forEach(([key, value]) => {
-                if (!map.has(key)) {
-                  map.set(key, new Set());
-                }
-                map.get(key)?.add(value);
-              });
-              return map;
-            }, new Map()).entries()
-          )
-            .map(([key, values]) => [key, Array.from(values.values()).slice(0, 12)] as const)
-            .filter(([, values]) => values.length > 1)
-            .slice(0, 10)
-        )
-      : {};
+    filters.category || filters.subcategory ? getAvailableFeatures(featureSource) : {};
 
   const featureSourcePrices = featureSource.map((product) => product.price);
   const priceRange = {

@@ -6,6 +6,8 @@ import type { CatalogFilters, CatalogResponse, CategoryMapping, ProductRecord } 
 
 const dataDir = path.join(process.cwd(), "db", "Data");
 const mappingFilename = "搜尋關鍵字_分類對照表.csv";
+const brandFeatureKey = "品牌";
+const searchKeywordFeatureKey = "搜尋關鍵字";
 const reservedKeys = new Set([
   "搜尋關鍵字",
   "商品ID",
@@ -32,26 +34,6 @@ type CatalogCache = {
 };
 
 let catalogCache: CatalogCache | null = null;
-const CATEGORY_ORDER = ["居家用品", "服飾", "3C", "食品與飲品", "生活用品"] as const;
-
-function compareCategoryOrder(a: string, b: string) {
-  const aIndex = CATEGORY_ORDER.indexOf(a as (typeof CATEGORY_ORDER)[number]);
-  const bIndex = CATEGORY_ORDER.indexOf(b as (typeof CATEGORY_ORDER)[number]);
-
-  if (aIndex !== -1 && bIndex !== -1) {
-    return aIndex - bIndex;
-  }
-
-  if (aIndex !== -1) {
-    return -1;
-  }
-
-  if (bIndex !== -1) {
-    return 1;
-  }
-
-  return a.localeCompare(b, "zh-Hant");
-}
 
 function safeNumber(value: string, fallback = 0) {
   const normalized = value.replace(/[^0-9.-]/g, "");
@@ -73,6 +55,46 @@ function toDiscountLabel(discountMultiplier: number, price: number, originalPric
   return `${formatted}折`;
 }
 
+function uniqueInOrder(values: string[]) {
+  const seen = new Set<string>();
+  return values.filter((value) => {
+    if (seen.has(value)) {
+      return false;
+    }
+    seen.add(value);
+    return true;
+  });
+}
+
+function splitFeatureValue(value: string) {
+  return uniqueInOrder(
+    value
+      .split(/[,\uff0c\u3001]/)
+      .map((part) => part.trim())
+      .filter(Boolean)
+  );
+}
+
+function productFeatureValues(product: ProductRecord, feature: string) {
+  if (feature === brandFeatureKey) {
+    return product.brand.trim() ? [product.brand.trim()] : [];
+  }
+
+  const current = product.features[feature];
+  return current ? splitFeatureValue(current) : [];
+}
+
+function orderedFeatureNames(items: ProductRecord[]) {
+  const names: string[] = [brandFeatureKey];
+
+  for (const product of items) {
+    const featureOrder = product.featureOrder?.length ? product.featureOrder : Object.keys(product.features);
+    names.push(...featureOrder.map((key) => key.trim()).filter(Boolean));
+  }
+
+  return uniqueInOrder(names).filter((name) => name !== searchKeywordFeatureKey);
+}
+
 function getImagePath(productId: string) {
   const imagesDir = path.join(dataDir, "images");
   if (!existsSync(imagesDir)) {
@@ -89,28 +111,13 @@ function createProductId(rawId: string, sourceFile: string, rowIndex: number) {
   return `${rawId}__${sourceKey}__${rowIndex}`;
 }
 
-function loadMapping(): CategoryMapping[] {
+export function loadMapping(): CategoryMapping[] {
   const mappingPath = path.join(dataDir, mappingFilename);
-
-  const [rawHeader, ...rows] = parseCsv(
-    readFileSync(mappingPath, "utf8")
-  );
-
-  // 只有第一欄最容易有：
-  // UTF-8 BOM (\ufeff)
-  // 最後一欄容易有：
-  // \r
-  const header = rawHeader.map((h) =>
-    h
-      .replace(/^\uFEFF/, "")
-      .replace(/\r/g, "")
-      .trim()
-  );
+  const [rawHeader, ...rows] = parseCsv(readFileSync(mappingPath, "utf8"));
+  const header = rawHeader.map((value) => value.replace(/^\uFEFF/, "").replace(/\r/g, "").trim());
 
   return rows.map((row) => {
-    const record = Object.fromEntries(
-      header.map((key, index) => [key, row[index] ?? ""])
-    );
+    const record = Object.fromEntries(header.map((key, index) => [key, row[index] ?? ""]));
 
     return {
       category: record["分類名稱"] ?? "未分類",
@@ -131,6 +138,16 @@ function loadProducts(): CatalogCache {
     (file) => file.endsWith(".csv") && file !== mappingFilename
   );
 
+  const categoryOrderMap = new Map<string, number>();
+  const subcategoryOrderMap = new Map<string, number>();
+
+  mappings.forEach((mapping, index) => {
+    if (!categoryOrderMap.has(mapping.category)) {
+      categoryOrderMap.set(mapping.category, categoryOrderMap.size);
+    }
+    subcategoryOrderMap.set(`${mapping.category}::${mapping.keyword}`, index);
+  });
+
   const products = productFiles.flatMap((file) => {
     const fullPath = path.join(dataDir, file);
     const [header, ...rows] = parseCsv(readFileSync(fullPath, "utf8"));
@@ -142,7 +159,7 @@ function loadProducts(): CatalogCache {
         const price = safeNumber(raw["售價"], 0);
         const originalPrice = safeNumber(raw["原價"], price);
         const discountValue = safeNumber(raw.discounts ?? "0", 0);
-        const rawId = raw["商品ID"] || `${file}-${Math.random()}`;
+        const rawId = raw["商品ID"] || `${file}-${rowIndex}`;
         const id = createProductId(rawId, file, rowIndex);
         const detail = raw["商品說明"] || raw["商品規格"] || "";
 
@@ -174,26 +191,39 @@ function loadProducts(): CatalogCache {
           sourceFile: file,
           imageText: `${raw["簡化名稱"] || raw["商品名稱"] || "商品"} 圖片預留區`,
           imageUrl: getImagePath(rawId),
-          features
+          features,
+          featureOrder: Object.keys(features)
         } satisfies ProductRecord;
       })
       .filter((product) => product.name.length > 0);
   });
 
-  const categoryMap = new Map<string, Set<string>>();
-  for (const mapping of mappings) {
-    if (!categoryMap.has(mapping.category)) {
-      categoryMap.set(mapping.category, new Set());
+  const categoryMap = new Map<string, { order: number; subcategories: Map<string, number> }>();
+  for (const product of products) {
+    if (!categoryMap.has(product.category)) {
+      categoryMap.set(product.category, {
+        order: categoryOrderMap.get(product.category) ?? 9999,
+        subcategories: new Map()
+      });
     }
-    categoryMap.get(mapping.category)?.add(mapping.keyword);
+
+    const entry = categoryMap.get(product.category);
+    if (entry && !entry.subcategories.has(product.subcategory)) {
+      entry.subcategories.set(
+        product.subcategory,
+        subcategoryOrderMap.get(`${product.category}::${product.subcategory}`) ?? 9999
+      );
+    }
   }
 
   const categories = Array.from(categoryMap.entries())
-    .map(([name, set]) => ({
+    .sort((a, b) => a[1].order - b[1].order || a[0].localeCompare(b[0], "zh-Hant"))
+    .map(([name, meta]) => ({
       name,
-      subcategories: Array.from(set.values()).sort((a, b) => a.localeCompare(b, "zh-Hant"))
-    }))
-    .sort((a, b) => compareCategoryOrder(a.name, b.name));
+      subcategories: Array.from(meta.subcategories.entries())
+        .sort((a, b) => a[1] - b[1] || a[0].localeCompare(b[0], "zh-Hant"))
+        .map(([subcategory]) => subcategory)
+    }));
 
   catalogCache = { products, categories };
   return catalogCache;
@@ -227,7 +257,7 @@ function filterBySearch(items: ProductRecord[], search?: string) {
 }
 
 function filterByFeatures(items: ProductRecord[], featureFilters?: Record<string, string[]>) {
-  if (!featureFilters) {
+  if (!featureFilters || Object.keys(featureFilters).length === 0) {
     return items;
   }
 
@@ -236,9 +266,30 @@ function filterByFeatures(items: ProductRecord[], featureFilters?: Record<string
       if (!values.length) {
         return true;
       }
-      const current = product.features[feature];
-      return current ? values.includes(current) : false;
+
+      return productFeatureValues(product, feature).some((value) => values.includes(value));
     })
+  );
+}
+
+function getAvailableFeatures(items: ProductRecord[]) {
+  return Object.fromEntries(
+    orderedFeatureNames(items)
+      .map((key): [string, string[]] => {
+        if (key === brandFeatureKey) {
+          const values = uniqueInOrder(
+            items.map((product) => product.brand.trim()).filter(Boolean)
+          );
+          return [key, values];
+        }
+
+        const values = uniqueInOrder(
+          items.flatMap((product) => productFeatureValues(product, key))
+        );
+
+        return [key, values];
+      })
+      .filter(([, values]) => values.length > 1)
   );
 }
 
@@ -270,7 +321,6 @@ export function getCatalog(filters: CatalogFilters = {}): CatalogResponse {
 
   filtered = filterBySearch(filtered, filters.search);
   const featureSource = [...filtered];
-
   const { minPrice, maxPrice, minRating } = filters;
 
   if (typeof minPrice === "number") {
@@ -295,24 +345,7 @@ export function getCatalog(filters: CatalogFilters = {}): CatalogResponse {
   filtered = sortProducts(filtered, filters.sort);
 
   const availableFeatures =
-    filters.category || filters.subcategory
-      ? Object.fromEntries(
-          Array.from(
-            featureSource.reduce<Map<string, Set<string>>>((map, product) => {
-              Object.entries(product.features).forEach(([key, value]) => {
-                if (!map.has(key)) {
-                  map.set(key, new Set());
-                }
-                map.get(key)?.add(value);
-              });
-              return map;
-            }, new Map()).entries()
-          )
-            .map(([key, values]) => [key, Array.from(values.values()).slice(0, 12)])
-            .filter(([, values]) => values.length > 1)
-            .slice(0, 10)
-        )
-      : {};
+    filters.category || filters.subcategory ? getAvailableFeatures(featureSource) : {};
 
   const featureSourcePrices = featureSource.map((product) => product.price);
   const priceRange = {
