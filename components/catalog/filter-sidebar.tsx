@@ -160,7 +160,7 @@ export function FilterSidebar({ data, filters, onChange, onReset }: FilterSideba
   };
 
   return (
-    <aside className="hidden h-fit w-[320px] shrink-0 xl:block">
+    <aside className="h-fit w-full shrink-0 lg:w-[320px] xl:w-[320px]">
       <div className="rounded-xl border border-slate-200 bg-white shadow-[0_18px_50px_rgba(15,23,42,0.06)]">
         <div className="flex items-center justify-between border-b border-slate-200/80 px-6 py-5">
           <h2 className="text-xl font-semibold text-slate-900">篩選條件</h2>

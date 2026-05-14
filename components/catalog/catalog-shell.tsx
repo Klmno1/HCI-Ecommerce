@@ -307,7 +307,7 @@ export function CatalogShell() {
         }}
       />
 
-      <main className="mx-auto flex max-w-[1560px] gap-4 px-3 py-5 lg:px-4">
+      <main className="mx-auto flex max-w-[1560px] flex-col gap-4 px-3 py-5 lg:flex-row lg:px-4">
         <FilterSidebar
           key={`${filters.category}::${filters.subcategory}::${filters.search}`}
           data={data}
