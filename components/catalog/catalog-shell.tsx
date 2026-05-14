@@ -257,7 +257,7 @@ export function CatalogShell() {
         onHomeClick={() => {
           setFilters(defaultFilters);
           setDraftSearch("");
-          window.location.assign("/");
+          window.history.replaceState(window.history.state, "", "/");
         }}
         onSearchChange={setDraftSearch}
         onSearchSubmit={() => {

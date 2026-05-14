@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { useExperiment } from "@/components/providers/experiment-provider";
 
+const taskOptions = ["0", "1", "2", "3", "4"];
+
 function isValidEmail(value: string) {
   return value.includes("@");
 }
@@ -10,7 +12,7 @@ function isValidEmail(value: string) {
 export function ExperimentGate({ children }: { children: React.ReactNode }) {
   const { participant, isSubmitting, registerParticipant, startTask, resetParticipant } = useExperiment();
   const [identifier, setIdentifier] = useState("");
-  const [taskId, setTaskId] = useState("1");
+  const [taskId, setTaskId] = useState("0");
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -38,13 +40,13 @@ export function ExperimentGate({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    if (!taskId.trim()) {
+    if (!taskOptions.includes(taskId)) {
       setError("請輸入任務編號。");
       return;
     }
 
     setError("");
-    await registerParticipant(trimmedIdentifier, taskId.trim());
+    await registerParticipant(trimmedIdentifier, taskId);
   };
 
   return (
@@ -74,13 +76,17 @@ export function ExperimentGate({ children }: { children: React.ReactNode }) {
 
               <label className="block">
                 <span className="mb-2 block text-sm font-semibold text-slate-700">任務編號</span>
-                <input
-                  type="text"
-                  inputMode="numeric"
+                <select
                   value={taskId}
-                  onChange={(event) => setTaskId(event.target.value.replace(/[^0-9]/g, ""))}
-                  className="h-11 w-full rounded-lg border border-slate-200 px-3 outline-none transition focus:border-[#3965ff]"
-                />
+                  onChange={(event) => setTaskId(event.target.value)}
+                  className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 outline-none transition focus:border-[#3965ff]"
+                >
+                  {taskOptions.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
               </label>
             </div>
 
