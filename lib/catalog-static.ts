@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, statSync } from "fs";
-import { buildCatalogArtifact, generatedCatalogPath, type CatalogArtifact } from "@/lib/catalog-artifact";
+import path from "path";
+import type { CatalogArtifact } from "@/lib/catalog-artifact";
 import type { CatalogFilters, CatalogResponse, ProductRecord } from "@/lib/types";
 import { normalizeText } from "@/lib/utils";
 
@@ -8,6 +9,7 @@ const searchKeywordFeatureKey = "搜尋關鍵字";
 
 let cachedCatalog: CatalogArtifact | null = null;
 let cachedMtimeMs = -1;
+const generatedCatalogPath = path.join(process.cwd(), "db", "generated", "catalog.json");
 
 function uniqueInOrder(values: string[]) {
   const seen = new Set<string>();
@@ -118,23 +120,20 @@ function sortProducts(items: ProductRecord[], sort: CatalogFilters["sort"]) {
 }
 
 async function loadCatalogArtifact() {
-  if (existsSync(generatedCatalogPath)) {
-    const nextMtimeMs = statSync(generatedCatalogPath).mtimeMs;
-
-    if (cachedCatalog && cachedMtimeMs === nextMtimeMs) {
-      return cachedCatalog;
-    }
-
-    const parsed = JSON.parse(readFileSync(generatedCatalogPath, "utf8")) as CatalogArtifact;
-    cachedCatalog = parsed;
-    cachedMtimeMs = nextMtimeMs;
-    return parsed;
+  if (!existsSync(generatedCatalogPath)) {
+    throw new Error(`Generated catalog not found at ${generatedCatalogPath}. Run catalog:generate before starting the app.`);
   }
 
-  const generated = await buildCatalogArtifact();
-  cachedCatalog = generated;
-  cachedMtimeMs = -1;
-  return generated;
+  const nextMtimeMs = statSync(generatedCatalogPath).mtimeMs;
+
+  if (cachedCatalog && cachedMtimeMs === nextMtimeMs) {
+    return cachedCatalog;
+  }
+
+  const parsed = JSON.parse(readFileSync(generatedCatalogPath, "utf8")) as CatalogArtifact;
+  cachedCatalog = parsed;
+  cachedMtimeMs = nextMtimeMs;
+  return parsed;
 }
 
 export async function getCatalog(filters: CatalogFilters = {}): Promise<CatalogResponse> {
