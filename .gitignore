@@ -18,6 +18,7 @@
 # data
 /db/Data/*
 !/db/Data/.gitkeep
+/db/generated/
 
 # misc
 .DS_Store

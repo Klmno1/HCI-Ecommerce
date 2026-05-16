@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCatalog } from "@/lib/catalog";
-import { getCatalog as getCatalogFromDb } from "@/lib/catalog-db";
+import { getCatalog } from "@/lib/catalog-static";
 
 function parseFeatureFilters(value: string | null) {
   if (!value) {
@@ -34,9 +33,7 @@ export async function GET(request: NextRequest) {
     featureFilters: parseFeatureFilters(searchParams.get("featureFilters"))
   };
 
-  const catalog = process.env.DATABASE_URL
-    ? await getCatalogFromDb(filters)
-    : getCatalog(filters);
+  const catalog = await getCatalog(filters);
 
   return NextResponse.json(catalog);
 }
